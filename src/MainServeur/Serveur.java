@@ -7,6 +7,7 @@ import com.sun.net.httpserver.HttpExchange;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.net.InetSocketAddress;
+import java.nio.charset.StandardCharsets;
 import java.rmi.registry.LocateRegistry;
 import java.rmi.registry.Registry;
 
@@ -43,22 +44,28 @@ public class Serveur {
         public void handle(HttpExchange echange) throws IOException {
             try {
                 Registry reg = LocateRegistry.getRegistry(host, port);
-                Service service = (Service) reg.lookup("service"); // on appelle "service1"
+                Service service = (Service) reg.lookup("service");
                 String reponse = service.getMessage();
 
-                echange.getResponseHeaders().set("Content-Type", "text/plain");
-                echange.sendResponseHeaders(200, reponse.length());
-                OutputStream os = echange.getResponseBody();
-                os.write(reponse.getBytes());
-                os.close();
+                byte[] bytes = reponse.getBytes(StandardCharsets.UTF_8);
+                echange.getResponseHeaders().set("Content-Type", "text/plain; charset=UTF-8");
+                echange.sendResponseHeaders(200, bytes.length);
+
+                try (OutputStream os = echange.getResponseBody()) {
+                    os.write(bytes);
+                }
 
             } catch (Exception e) {
                 String erreur = "Erreur RMI : " + e.getMessage();
-                echange.sendResponseHeaders(500, erreur.length());
-                OutputStream os = echange.getResponseBody();
-                os.write(erreur.getBytes());
-                os.close();
+                byte[] erreurBytes = erreur.getBytes(StandardCharsets.UTF_8);
+                echange.getResponseHeaders().set("Content-Type", "text/plain; charset=UTF-8");
+                echange.sendResponseHeaders(500, erreurBytes.length);
+
+                try (OutputStream os = echange.getResponseBody()) {
+                    os.write(erreurBytes);
+                }
             }
         }
+
     }
 }
