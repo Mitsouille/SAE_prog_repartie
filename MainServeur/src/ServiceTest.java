@@ -1,3 +1,4 @@
+import java.io.Serializable;
 import java.rmi.RemoteException;
 import java.rmi.registry.LocateRegistry;
 import java.rmi.registry.Registry;
@@ -21,6 +22,8 @@ public class ServiceTest extends UnicastRemoteObject implements Service {
             ServiceTest service = new ServiceTest();
             reg.rebind("service", service);
             System.out.println("Service enregistré dans le registre.");
+            Service service1 = (Service) reg.lookup("ServiceIncidents");
+            System.out.println(service1.getMessage());
         } catch (Exception e) {
             e.printStackTrace();
         }
