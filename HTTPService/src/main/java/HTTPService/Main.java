@@ -10,9 +10,10 @@ public class Main {
     public static void main(String[] args) throws IOException {
 
         Registry registry = LocateRegistry.getRegistry();
-        IHttpService service = new AccidentService();
-        IHttpService rd = (IHttpService) UnicastRemoteObject.exportObject(service, 0);
+        Service service = new AccidentService();
+        Service rd = (Service) UnicastRemoteObject.exportObject(service, 0);
         registry.rebind("ServiceIncidents", rd);
+        System.out.println("Connecter sur le registre.");
 
     }
 

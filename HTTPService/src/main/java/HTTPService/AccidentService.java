@@ -11,7 +11,7 @@ import java.time.Duration;
 import java.util.Properties;
 import java.util.concurrent.ExecutionException;
 
-public class AccidentService implements IHttpService {
+public class AccidentService implements Service {
     private int PROXY_PORT;
     private String PROXY_URL;
     private String PROXY_HOST_NAME;
@@ -29,7 +29,7 @@ public class AccidentService implements IHttpService {
     }
 
     @Override
-    public String getIncidents() throws RemoteException {
+    public String getMessage() throws RemoteException {
         try {
             HttpRequest request = HttpRequest.newBuilder()
                     .uri(URI.create(URL_API_INCIDENT))
