@@ -1,5 +1,3 @@
-package MainServeur;
-
 import com.sun.net.httpserver.HttpServer;
 import com.sun.net.httpserver.HttpHandler;
 import com.sun.net.httpserver.HttpExchange;
@@ -42,6 +40,19 @@ public class Serveur {
 
         @Override
         public void handle(HttpExchange echange) throws IOException {
+            String origin = echange.getRequestHeaders().getFirst("Origin");
+            if (origin != null) {
+                echange.getResponseHeaders().add("Access-Control-Allow-Origin", origin);
+            }
+
+            echange.getResponseHeaders().add("Access-Control-Allow-Methods", "GET, OPTIONS");
+            echange.getResponseHeaders().add("Access-Control-Allow-Headers", "*");
+
+            if ("OPTIONS".equalsIgnoreCase(echange.getRequestMethod())) {
+                echange.sendResponseHeaders(204, -1); // No Content
+                return;
+            }
+
             try {
                 Registry reg = LocateRegistry.getRegistry(host, port);
                 Service service = (Service) reg.lookup("service");
@@ -66,6 +77,5 @@ public class Serveur {
                 }
             }
         }
-
     }
 }

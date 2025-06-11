@@ -1,5 +1,3 @@
-package MainServeur;
-
 import java.rmi.registry.LocateRegistry;
 
 public class Main {
