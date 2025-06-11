@@ -1,5 +1,3 @@
-package HTTPService;
-
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.net.URI;
@@ -51,7 +49,7 @@ public class AccidentService implements Service {
 
     private void loadConfig() throws IOException {
         Properties props = new Properties();
-        try (FileInputStream fis = new FileInputStream("src/config.properties")) {
+        try (FileInputStream fis = new FileInputStream("../config.properties")) {
             props.load(fis);
         }
 

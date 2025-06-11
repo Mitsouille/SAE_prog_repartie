@@ -23,19 +23,25 @@ public class Serveur {
 
     public void demarrer() throws IOException {
         serveur = HttpServer.create(new InetSocketAddress("0.0.0.0", portHttp), 0);
-        serveur.createContext("/data", new MonHandler(hostRmi, portRmi));
+
+        // Création de routes avec nom du service RMI différent
+        serveur.createContext("/data", new HandlerRMI(hostRmi, portRmi, "service"));
+        serveur.createContext("/incidents", new HandlerRMI(hostRmi, portRmi, "ServiceIncidents"));
+
         serveur.setExecutor(null);
         serveur.start();
         System.out.println("Serveur HTTP démarré sur le port " + portHttp);
     }
 
-    static class MonHandler implements HttpHandler {
+    static class HandlerRMI implements HttpHandler {
         private final String host;
         private final int port;
+        private final String nomService;
 
-        public MonHandler(String host, int port) {
+        public HandlerRMI(String host, int port, String nomService) {
             this.host = host;
             this.port = port;
+            this.nomService = nomService;
         }
 
         @Override
@@ -55,11 +61,13 @@ public class Serveur {
 
             try {
                 Registry reg = LocateRegistry.getRegistry(host, port);
-                Service service = (Service) reg.lookup("service");
-                String reponse = service.getMessage();
+                Service service = (Service) reg.lookup(nomService);
 
-                byte[] bytes = reponse.getBytes(StandardCharsets.UTF_8);
-                echange.getResponseHeaders().set("Content-Type", "text/plain; charset=UTF-8");
+                // Appel du service
+                String reponseJson = service.getMessage();  // On suppose que ça retourne un JSON
+
+                byte[] bytes = reponseJson.getBytes(StandardCharsets.UTF_8);
+                echange.getResponseHeaders().set("Content-Type", "application/json; charset=UTF-8");
                 echange.sendResponseHeaders(200, bytes.length);
 
                 try (OutputStream os = echange.getResponseBody()) {
@@ -67,9 +75,9 @@ public class Serveur {
                 }
 
             } catch (Exception e) {
-                String erreur = "Erreur RMI : " + e.getMessage();
+                String erreur = "{\"erreur\": \"" + e.getMessage().replace("\"", "\\\"") + "\"}";
                 byte[] erreurBytes = erreur.getBytes(StandardCharsets.UTF_8);
-                echange.getResponseHeaders().set("Content-Type", "text/plain; charset=UTF-8");
+                echange.getResponseHeaders().set("Content-Type", "application/json; charset=UTF-8");
                 echange.sendResponseHeaders(500, erreurBytes.length);
 
                 try (OutputStream os = echange.getResponseBody()) {
