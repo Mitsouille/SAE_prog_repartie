@@ -49,7 +49,7 @@ public class AccidentService implements Service {
 
     private void loadConfig() throws IOException {
         Properties props = new Properties();
-        try (FileInputStream fis = new FileInputStream("../config.properties")) {
+        try (FileInputStream fis = new FileInputStream("HTTPService/config.properties")) {
             props.load(fis);
         }
 
