@@ -10,9 +10,6 @@ import java.rmi.RemoteException;
 import java.time.Duration;
 import java.util.Properties;
 import java.util.concurrent.ExecutionException;
-import org.json.simple.JSONObject;
-import org.json.simple.parser.JSONParser;
-import org.json.simple.parser.ParseException;
 
 public class AccidentService implements IHttpService {
     private int PROXY_PORT;
@@ -32,7 +29,7 @@ public class AccidentService implements IHttpService {
     }
 
     @Override
-    public JSONObject getIncidents() throws RemoteException {
+    public String getIncidents() throws RemoteException {
         try {
             HttpRequest request = HttpRequest.newBuilder()
                     .uri(URI.create(URL_API_INCIDENT))
@@ -45,15 +42,10 @@ public class AccidentService implements IHttpService {
                 throw new RemoteException("Erreur HTTP: " + response.statusCode());
             }
 
-            JSONParser parser = new JSONParser();
-            JSONObject json = (JSONObject) parser.parse(response.body());
-
-            return json;
+            return response.body();
 
         } catch (InterruptedException | ExecutionException e) {
             throw new RemoteException("Erreur lors de l'appel HTTP: " + e.getMessage(), e);
-        } catch (ParseException e) {
-            throw new RemoteException("Erreur lors du parsing JSON: " + e.getMessage(), e);
         }
     }
 
