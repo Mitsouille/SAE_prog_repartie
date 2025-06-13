@@ -133,7 +133,7 @@ function loadWeather() {
 let selectedRestaurantId = null;
 
 function loadRestaurants() {
-  fetch("http://localhost:8080/data/restaurant")
+  fetch("http://localhost:8080/data/restaurants")
     .then(response => response.json())
     .then(data => {
       data.restaurants.forEach(r => {
@@ -187,7 +187,7 @@ document.getElementById("reservationForm").addEventListener("submit", async (e) 
     return;
   }
 
-  fetch("http://localhost:8080/data/reservation", {
+  fetch("http://localhost:8080/data/reservations", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body)
