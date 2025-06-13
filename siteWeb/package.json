@@ -1,0 +1,18 @@
+{
+  "name": "projet",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "build": "esbuild index.js --bundle --outdir=dist --loader:.png=file --loader:.css=css",
+    "dev": "esbuild index.js --bundle --outdir=dist --watch --loader:.png=file --loader:.css=css"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "leaflet": "^1.9.4"
+  },
+  "devDependencies": {
+    "esbuild": "^0.25.5"
+  }
+}
