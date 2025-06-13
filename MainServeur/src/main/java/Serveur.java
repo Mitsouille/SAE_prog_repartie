@@ -5,11 +5,12 @@ import com.sun.net.httpserver.HttpExchange;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.net.InetSocketAddress;
+import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
 import java.rmi.registry.LocateRegistry;
 import java.rmi.registry.Registry;
-import java.time.LocalDateTime;
-import java.time.format.DateTimeFormatter;
+import java.util.HashMap;
+import java.util.Map;
 
 public class Serveur {
     private HttpServer serveur;
@@ -68,6 +69,7 @@ public class Serveur {
                 ServiceRestaurant service = (ServiceRestaurant) reg.lookup("ServiceRestaurant");
 
                 String jsonResponse;
+                System.out.println(query);
 
                 if (path.endsWith("/restaurants")) {
                     jsonResponse = service.getTousLesRestaurantsJson();
@@ -76,22 +78,11 @@ public class Serveur {
                     jsonResponse = service.getToutesLesReservationsJson();
 
                 } else if (path.endsWith("/tables")) {
-                    int idRestaurant = getQueryParamInt(query, "idRestaurant");
-                    String jsonParams = "{"
-                        + "\"idRestaurant\":" + idRestaurant + "}";
-
+                    String jsonParams = queryToJsonString(query);
                     jsonResponse = service.getTablesParRestaurantJson(jsonParams);
 
                 } else if (path.endsWith("/placesDisponibles")) {
-                    int idRestaurant = getQueryParamInt(query, "idRestaurant");
-                    LocalDateTime debut = getQueryParamDateTime(query, "debut");
-                    LocalDateTime fin = getQueryParamDateTime(query, "fin");
-                    String jsonParams = "{"
-                        + "\"idRestaurant\":" + idRestaurant + ","
-                        + "\"debut\":\"" + debut.toString() + "\","
-                        + "\"fin\":\"" + fin.toString() + "\""
-                        + "}";
-
+                    String jsonParams = queryToJsonString(query);
                     jsonResponse = service.getPlacesDisponiblesJson(jsonParams);
 
                 } else if (path.endsWith("/reserver") && "POST".equalsIgnoreCase(method)) {
@@ -99,10 +90,7 @@ public class Serveur {
                     jsonResponse = service.reserverTableJson(body);
 
                 } else if (path.endsWith("/annuler")) {
-                    int idReservation = getQueryParamInt(query, "idReservation");
-                    String jsonParams = "{"
-                        + "\"idReservation\":" + idReservation + "}";
-
+                    String jsonParams = queryToJsonString(query);
                     jsonResponse = service.annulerReservationJson(jsonParams);
 
                 } else {
@@ -125,27 +113,45 @@ public class Serveur {
             }
         }
 
-        private int getQueryParamInt(String query, String key) {
-            if (query == null) return -1;
+        public static String queryToJsonString(String query) {
+            if (query == null || query.isEmpty()) return "{}";
+
+            Map<String, String> params = new HashMap<>();
             for (String param : query.split("&")) {
-                String[] parts = param.split("=");
-                if (parts.length == 2 && parts[0].equals(key)) {
-                    return Integer.parseInt(parts[1]);
+                int idx = param.indexOf('=');
+                if (idx > 0) {
+                    String key = URLDecoder.decode(param.substring(0, idx), StandardCharsets.UTF_8);
+                    String value = URLDecoder.decode(param.substring(idx + 1), StandardCharsets.UTF_8);
+                    params.put(key, value);
                 }
             }
-            return -1;
+
+            StringBuilder sb = new StringBuilder();
+            sb.append("{");
+            boolean first = true;
+
+            for (Map.Entry<String, String> entry : params.entrySet()) {
+                if (!first) {
+                    sb.append(",");
+                } else {
+                    first = false;
+                }
+
+                String key = entry.getKey();
+                String value = entry.getValue();
+
+                // Si la valeur est un nombre (int), on l'insère sans guillemets, sinon avec guillemets
+                if (value.matches("-?\\d+")) {
+                    sb.append("\"").append(key).append("\":").append(value);
+                } else {
+                    sb.append("\"").append(key).append("\":\"").append(value).append("\"");
+                }
+            }
+
+            sb.append("}");
+            return sb.toString();
         }
 
-        private LocalDateTime getQueryParamDateTime(String query, String key) {
-            if (query == null) return null;
-            for (String param : query.split("&")) {
-                String[] parts = param.split("=");
-                if (parts.length == 2 && parts[0].equals(key)) {
-                    return LocalDateTime.parse(parts[1], DateTimeFormatter.ISO_LOCAL_DATE_TIME);
-                }
-            }
-            return null;
-        }
     }
 
 
