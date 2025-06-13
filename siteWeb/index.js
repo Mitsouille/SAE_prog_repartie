@@ -14,6 +14,8 @@ L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
   attribution: '© OpenStreetMap contributors'
 }).addTo(map);
 
+
+
 const incidentIcon = L.icon({
   iconUrl: 'https://cdn-icons-png.flaticon.com/512/595/595067.png',
   iconSize: [32, 32],
@@ -74,7 +76,7 @@ function loadWeather() {
     .catch(() => document.getElementById("weather").textContent = "Indisponible");
 }
 
-let selectedRestaurantId = null;ù
+let selectedRestaurantId = null;
 
 function loadRestaurants() {
   fetch("https://100.64.80.245:8443/data/restaurants")
@@ -84,7 +86,15 @@ function loadRestaurants() {
         const marker = L.marker([r.latitude, r.longitude]).addTo(map);
         marker.on('click', () => {
           selectedRestaurantId = r.id;
-          marker.bindPopup(`<div class="popup-content"><div class="popup-title">${r.nom}</div><div class="popup-info">${r.adresse}</div><div class="popup-info">Note : ${r.note.toFixed(1)}</div><button onclick="openModal()">Réserver</button></div>`).openPopup();
+          marker.bindPopup(`
+            <div class="popup-content">
+              <div class="popup-title">${r.nom}</div>
+              <div class="popup-info">${r.adresse}</div>
+              <div class="popup-info">Note : ${r.note.toFixed(1)}</div>
+              <button onclick="openModal()">Réserver</button>
+              <button onclick="openCancelModal()">Annuler une réservation</button>
+            </div>
+          `).openPopup();
         });
       });
     })
@@ -97,6 +107,14 @@ window.openModal = () => {
 
 window.closeModal = () => {
   document.getElementById("reservationModal").style.display = "none";
+};
+
+window.openCancelModal = () => {
+  document.getElementById("cancelReservationModal").style.display = "flex";
+};
+
+window.closeCancelModal = () => {
+  document.getElementById("cancelReservationModal").style.display = "none";
 };
 
 function envoyerReservation(body) {
@@ -140,25 +158,27 @@ document.addEventListener("DOMContentLoaded", () => {
     envoyerReservation(body)
       .then(d => {
         const msg = typeof d.message === "string" ? d.message :
-                    d.success ? "Réservation réussie." : "Réservation échouée.";
+          d.success ? "Réservation réussie." : "Réservation échouée.";
         alert(msg);
         closeModal();
       })
       .catch(() => alert("Erreur lors de la réservation"));
   });
 
-  document.getElementById("cancelBtn").addEventListener("click", () => {
-    const tel = form.tel.value;
-    const debut = form.debut.value;
-    if (!tel || !debut) {
-      alert("Remplis téléphone et date pour annuler");
-      return;
-    }
+  document.getElementById("cancelReservationForm").addEventListener("submit", (e) => {
+    e.preventDefault();
+    const form = e.target;
+    const body = {
+      prenom: form.prenom.value,
+      nom: form.nom.value,
+      telephone: form.tel.value,
+      debut: form.debut.value
+    };
 
-    annulerReservation({ telephone: tel, debut })
+    annulerReservation(body)
       .then(d => {
         alert(d.message || "Annulation traitée");
-        closeModal();
+        closeCancelModal();
       })
       .catch(() => alert("Erreur d'annulation"));
   });

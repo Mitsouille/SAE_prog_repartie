@@ -187,3 +187,89 @@ h1 {
 .leaflet-container {
   z-index: 0 !important;
 }
+.legend-wrapper {
+  display: flex;
+  justify-content: center;
+  margin-top: 20px;
+}
+
+.legend {
+  background: white;
+  border-radius: 8px;
+  padding: 10px 15px;
+  box-shadow: 0 0 5px rgba(0,0,0,0.15);
+  max-width: 400px;
+  font-size: 0.95em;
+  margin-bottom: 20px;
+}
+
+.legend ul {
+  list-style: none;
+  padding: 0;
+  margin-top: 10px;
+}
+
+.legend li {
+  margin-bottom: 6px;
+  display: flex;
+  align-items: center;
+}
+
+.legend-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  display: inline-block;
+  margin-right: 8px;
+}
+
+.legend-dot.green { background-color: green; }
+.legend-dot.orange { background-color: orange; }
+.legend-dot.red { background-color: red; }
+
+.legend-icon {
+  width: 14px;
+  height: 22px;
+  margin-right: 8px;
+  vertical-align: middle;
+}
+.header-row {
+  text-align: center;
+  padding: 30px 20px;
+  background: white;
+  border-radius: 16px;
+  box-shadow: 0 15px 30px rgba(0, 0, 0, 0.08);
+  margin-bottom: 30px;
+}
+
+
+
+
+.header-title h1 {
+  font-size: 2.8em;
+  color: #3f51b5;
+  margin: 0;
+}
+
+.header-title .subtitle {
+  font-size: 1.2em;
+  color: #666;
+  margin-top: 4px;
+}
+
+.rapport-button {
+  padding: 12px 24px;
+  background: #3f51b5;
+  color: white;
+  text-decoration: none;
+  border-radius: 10px;
+  font-weight: 500;
+  font-size: 1em;
+  transition: background 0.2s;
+   margin-top: 20px;
+  display: inline-block;
+
+}
+.rapport-button:hover {
+  background: #2c3d94;
+}
