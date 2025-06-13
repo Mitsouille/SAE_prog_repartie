@@ -1,4 +1,3 @@
-
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 
@@ -35,130 +34,64 @@ const formatDate = (iso) => {
 
 function loadStations() {
   fetch('https://api.cyclocity.fr/contracts/nancy/gbfs/v2/station_information.json')
-    .then(response => response.json())
-    .then(infoData => {
-      return fetch('https://api.cyclocity.fr/contracts/nancy/gbfs/v2/station_status.json')
-        .then(response => response.json())
-        .then(statusData => {
-          const stations = infoData.data.stations;
-          const statuses = statusData.data.stations;
-
-          let totalBikes = 0;
-          let totalDocks = 0;
-
-          stations.forEach(station => {
-            const status = statuses.find(s => s.station_id === station.station_id);
-            if (!status) return;
-
-            const color = status.num_bikes_available > 5 ? 'green' :
-                          status.num_bikes_available > 0 ? 'orange' : 'red';
-
-            const marker = L.circleMarker([station.lat, station.lon], {
-              color: color,
-              fillColor: color,
-              fillOpacity: 0.7,
-              radius: 8
-            }).addTo(map);
-
-            marker.bindPopup(`
-              <div class="popup-content">
-                <div class="popup-title">${station.name}</div>
-                <div class="popup-info">Vélos disponibles : ${status.num_bikes_available}</div>
-                <div class="popup-info">Places libres : ${status.num_docks_available}</div>
-              </div>
-            `);
-
-            totalBikes += status.num_bikes_available;
-            totalDocks += status.num_docks_available;
-          });
-
-          document.getElementById('station-count').textContent = stations.length;
-          document.getElementById('bike-count').textContent = totalBikes;
-          document.getElementById('dock-count').textContent = totalDocks;
+    .then(r => r.json())
+    .then(info => fetch('https://api.cyclocity.fr/contracts/nancy/gbfs/v2/station_status.json')
+      .then(r => r.json())
+      .then(status => {
+        info.data.stations.forEach(station => {
+          const st = status.data.stations.find(s => s.station_id === station.station_id);
+          if (!st) return;
+          const color = st.num_bikes_available > 5 ? 'green' : st.num_bikes_available > 0 ? 'orange' : 'red';
+          const marker = L.circleMarker([station.lat, station.lon], {
+            color, fillColor: color, fillOpacity: 0.7, radius: 8
+          }).addTo(map);
+          marker.bindPopup(`<div class="popup-content"><div class="popup-title">${station.name}</div><div class="popup-info">Vélos : ${st.num_bikes_available}</div><div class="popup-info">Places : ${st.num_docks_available}</div></div>`);
         });
-    })
-    .catch(error => {
-      console.error('Erreur stations:', error);
-      alert('Impossible de charger les données vélo');
-    });
+
+        document.getElementById('station-count').textContent = info.data.stations.length;
+        document.getElementById('bike-count').textContent = status.data.stations.reduce((a, s) => a + s.num_bikes_available, 0);
+        document.getElementById('dock-count').textContent = status.data.stations.reduce((a, s) => a + s.num_docks_available, 0);
+      }))
+    .catch(e => console.error(e));
 }
 
 function loadIncidents() {
   fetch('http://localhost:8080/incidents')
-    .then(response => response.json())
-    .then(data => {
-      const incidents = data.incidents;
-      incidents.forEach(incident => {
-        const coords = incident.location.polyline.trim().split(/\s+/);
-        const lat = parseFloat(coords[0]);
-        const lon = parseFloat(coords[1]);
-        if (isNaN(lat) || isNaN(lon)) return;
-
-        const marker = L.marker([lat, lon], { icon: incidentIcon }).addTo(map);
-
-        marker.bindPopup(`
-          <div class="popup-content">
-            <div class="popup-title">${incident.short_description}</div>
-            <div class="popup-info">${incident.description}</div>
-            <div class="popup-info">${incident.location.location_description}</div>
-            <div class="popup-info">Du ${formatDate(incident.starttime)} au ${formatDate(incident.endtime)}</div>
-          </div>
-        `);
-      });
-    })
-    .catch(error => {
-      console.error('Erreur incidents:', error);
-      alert('Impossible de charger les incidents');
-    });
+    .then(r => r.json())
+    .then(d => d.incidents.forEach(i => {
+      const [lat, lon] = i.location.polyline.trim().split(/\s+/).map(parseFloat);
+      if (isNaN(lat) || isNaN(lon)) return;
+      const m = L.marker([lat, lon], { icon: incidentIcon }).addTo(map);
+      m.bindPopup(`<div class="popup-content"><div class="popup-title">${i.short_description}</div><div class="popup-info">${i.description}</div><div class="popup-info">${i.location.location_description}</div><div class="popup-info">Du ${formatDate(i.starttime)} au ${formatDate(i.endtime)}</div></div>`);
+    }))
+    .catch(e => console.error(e));
 }
 
 function loadWeather() {
   fetch("https://wttr.in/Nancy?format=%C+%t&lang=fr")
-    .then(response => response.text())
-    .then(data => {
-      const weatherElement = document.getElementById('weather');
-      if (weatherElement) {
-        weatherElement.textContent = data;
-      }
-    })
-    .catch(error => {
-      console.error("Erreur météo :", error);
-      const weatherElement = document.getElementById('weather');
-      if (weatherElement) {
-        weatherElement.textContent = "Indisponible";
-      }
-    });
+    .then(r => r.text())
+    .then(data => document.getElementById("weather").textContent = data)
+    .catch(() => document.getElementById("weather").textContent = "Indisponible");
 }
 
 let selectedRestaurantId = null;
 
 function loadRestaurants() {
   fetch("http://localhost:8080/data/restaurants")
-    .then(response => response.json())
+    .then(r => r.json())
     .then(data => {
       data.restaurants.forEach(r => {
         const marker = L.marker([r.latitude, r.longitude]).addTo(map);
-
         marker.on('click', () => {
-          marker.bindPopup(`
-            <div class="popup-content">
-              <div class="popup-title">${r.nom}</div>
-              <div class="popup-info">${r.adresse}</div>
-              <div class="popup-info">Note : ${r.note.toFixed(1)}</div>
-              <button onclick="openModal(${r.id})">Réserver</button>
-            </div>
-          `).openPopup();
+          selectedRestaurantId = r.id;
+          marker.bindPopup(`<div class="popup-content"><div class="popup-title">${r.nom}</div><div class="popup-info">${r.adresse}</div><div class="popup-info">Note : ${r.note.toFixed(1)}</div><button onclick="openModal()">Réserver</button></div>`).openPopup();
         });
       });
     })
-    .catch(error => {
-      console.error("Erreur restaurants :", error);
-      alert("Impossible de charger les restaurants");
-    });
+    .catch(e => console.error(e));
 }
 
-window.openModal = (restaurantId) => {
-  selectedRestaurantId = restaurantId;
+window.openModal = () => {
   document.getElementById("reservationModal").style.display = "flex";
 };
 
@@ -166,44 +99,72 @@ window.closeModal = () => {
   document.getElementById("reservationModal").style.display = "none";
 };
 
-document.getElementById("reservationForm").addEventListener("submit", async (e) => {
-  e.preventDefault();
-  const form = e.target;
-
-  const body = {
-    idTable: 1,
-    prenom: form.prenom.value,
-    nom: form.nom.value,
-    tel: form.tel.value,
-    nbConvives: parseInt(form.nbConvives.value),
-    debut: form.debut.value,       
-    fin: form.fin.value
-  };
-
-  const dispoRes = await fetch(`http://localhost:8080/data/placesDisponibles?idRestaurant=${selectedRestaurantId}&debut=${body.debut}&fin=${body.fin}`);
-  const dispo = await dispoRes.text();
-  if (parseInt(dispo) < body.nbConvives) {
-    alert("❌ Pas assez de places disponibles.");
-    return;
-  }
-
-  fetch("http://localhost:8080/data/reservations", {
+function envoyerReservation(body) {
+  return fetch("http://localhost:8080/data/reserver", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body)
-  })
-    .then(res => res.json())
-    .then(data => {
-      alert(data.message);
-      closeModal();
-    })
-    .catch(err => {
-      console.error("Erreur réservation:", err);
-      alert("Erreur lors de la réservation");
-    });
-});
+  }).then(r => r.json());
+}
 
-loadRestaurants();
-loadWeather();
-loadStations();
-loadIncidents();
+function annulerReservation(body) {
+  return fetch("http://localhost:8080/data/annuler", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body)
+  }).then(r => r.json());
+}
+
+document.addEventListener("DOMContentLoaded", () => {
+  const form = document.getElementById("reservationForm");
+
+  form.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const body = {
+      idTable: 1,
+      prenom: form.prenom.value,
+      nom: form.nom.value,
+      tel: form.tel.value,
+      nbConvives: parseInt(form.nbConvives.value),
+      debut: form.debut.value,
+      fin: form.fin.value
+    };
+
+    const res = await fetch(`http://localhost:8080/data/placesDisponibles?idRestaurant=${selectedRestaurantId}&debut=${body.debut}&fin=${body.fin}`);
+    const dispo = await res.text();
+    if (parseInt(dispo) < body.nbConvives) {
+      alert("Pas assez de places disponibles.");
+      return;
+    }
+
+    envoyerReservation(body)
+      .then(d => {
+        const msg = typeof d.message === "string" ? d.message :
+                    d.success ? "Réservation réussie." : "Réservation échouée.";
+        alert(msg);
+        closeModal();
+      })
+      .catch(() => alert("Erreur lors de la réservation"));
+  });
+
+  document.getElementById("cancelBtn").addEventListener("click", () => {
+    const tel = form.tel.value;
+    const debut = form.debut.value;
+    if (!tel || !debut) {
+      alert("Remplis téléphone et date pour annuler");
+      return;
+    }
+
+    annulerReservation({ telephone: tel, debut })
+      .then(d => {
+        alert(d.message || "Annulation traitée");
+        closeModal();
+      })
+      .catch(() => alert("Erreur d'annulation"));
+  });
+
+  loadRestaurants();
+  loadWeather();
+  loadStations();
+  loadIncidents();
+});

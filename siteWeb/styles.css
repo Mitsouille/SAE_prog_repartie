@@ -180,3 +180,10 @@ h1 {
   color: white;
   cursor: pointer;
 }
+.modal {
+  z-index: 10000 !important;
+}
+
+.leaflet-container {
+  z-index: 0 !important;
+}
