@@ -1,12 +1,11 @@
 
 import java.rmi.RemoteException;
-import java.rmi.server.UnicastRemoteObject;
 import java.sql.*;
 import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.Map;
 
-public class ServiceRestaurantImpl extends UnicastRemoteObject implements ServiceRestaurant {
+public class ServiceRestaurantImpl implements ServiceRestaurant {
     private final Connection conn;
 
     public ServiceRestaurantImpl() throws RemoteException {

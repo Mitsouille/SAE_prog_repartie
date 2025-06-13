@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="fr">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Nancy - Carte Interactive</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+    <link rel="stylesheet" href="styles.css" />
+</head>
+
+<body>
+    <div class="container">
+        <header>
+            <h1><i class="fas fa-bicycle"></i> Nancy</h1>
+            <p class="subtitle">Carte interactive</p>
+        </header>
+
+        <div class="stat-card">
+            <div class="stat-number" id="weather">--</div>
+            <div class="stat-label">Météo à Nancy</div>
+        </div>
+
+        <div id="map" style="height: 500px; margin-bottom: 20px;"></div>
+
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-number" id="station-count">0</div>
+                <div class="stat-label">Stations totales</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number" id="bike-count">0</div>
+                <div class="stat-label">Vélos disponibles</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number" id="dock-count">0</div>
+                <div class="stat-label">Places libres</div>
+            </div>
+        </div>
+    </div>
+
+
+    <div id="reservationModal" class="modal">
+        <div class="modal-content">
+            <h3>Réserver une table</h3>
+            <form id="reservationForm">
+                <input type="text" name="prenom" placeholder="Prénom" required />
+                <input type="text" name="nom" placeholder="Nom" required />
+                <input type="tel" name="tel" placeholder="Téléphone" required />
+                <input type="number" name="nbConvives" placeholder="Nombre de convives" required />
+                <input type="datetime-local" name="debut" required />
+                <input type="datetime-local" name="fin" required />
+                <button type="submit">Envoyer</button>
+                <button type="button" onclick="closeModal()">Annuler</button>
+            </form>
+        </div>
+    </div>
+
+    <script type="module" src="dist/index.js"></script>
+</body>
+
+</html>
