@@ -190,16 +190,19 @@ public class ServiceRestaurantImpl implements ServiceRestaurant {
 
     @Override
     public String annulerReservationJson(String requestJson) throws RemoteException {
+        // 1) Récupération des paramètres
         Map<String,String> m = parseJsonToMap(requestJson);
         String tel   = m.get("telephone");
-        String debut = m.get("debut");
+        LocalDateTime debut = LocalDateTime.parse(m.get("debut"));
 
+        // 2) Nouvelle requête : comparaison sur un Timestamp
         String sql = "DELETE FROM reservations "
                 + "WHERE telephone_client = ? "
-                + "  AND debut_reservation = TO_TIMESTAMP(?, 'YYYY-MM-DD\"T\"HH24:MI:SS')";
+                + "  AND debut_reservation = ?";
         try (PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setString(1, tel);
-            ps.setString(2, debut);
+            ps.setTimestamp(2, Timestamp.valueOf(debut));
+
             int rows = ps.executeUpdate();
             if (rows > 0) {
                 return "{\"success\":true,\"deleted\":" + rows + "}";
@@ -210,6 +213,8 @@ public class ServiceRestaurantImpl implements ServiceRestaurant {
             return "{\"error\":" + jsonEsc(e.getMessage()) + "}";
         }
     }
+
+    
 
 
     private Map<String,String> parseJsonToMap(String json) {
