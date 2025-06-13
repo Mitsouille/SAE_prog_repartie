@@ -1,11 +1,5 @@
 
-import com.sun.net.httpserver.HttpHandler;
-import com.sun.net.httpserver.HttpExchange;
-import com.sun.net.httpserver.*;
-import javax.net.ssl.*;
-import java.io.*;
-import java.security.KeyStore;
-
+import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.net.InetSocketAddress;
@@ -13,9 +7,21 @@ import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
 import java.rmi.registry.LocateRegistry;
 import java.rmi.registry.Registry;
+import java.security.KeyStore;
 import java.util.HashMap;
 import java.util.Map;
 
+import javax.net.ssl.KeyManagerFactory;
+import javax.net.ssl.SSLContext;
+import javax.net.ssl.SSLEngine;
+
+import org.json.JSONObject;
+
+import com.sun.net.httpserver.HttpExchange;
+import com.sun.net.httpserver.HttpHandler;
+import com.sun.net.httpserver.HttpsConfigurator;
+import com.sun.net.httpserver.HttpsParameters;
+import com.sun.net.httpserver.HttpsServer;
 
 
 public class Serveur {
@@ -213,9 +219,9 @@ public class Serveur {
                 Service service = (Service) reg.lookup("ServiceIncidents");
 
                 // Appel du service
-                String reponseJson = service.getMessage();  // On suppose que ça retourne un JSON
+                JSONObject reponseJson = service.getMessage();  // On suppose que ça retourne un JSON
 
-                byte[] bytes = reponseJson.getBytes(StandardCharsets.UTF_8);
+                byte[] bytes = reponseJson.toString().getBytes(StandardCharsets.UTF_8);
                 echange.getResponseHeaders().set("Content-Type", "application/json; charset=UTF-8");
                 echange.sendResponseHeaders(200, bytes.length);
 

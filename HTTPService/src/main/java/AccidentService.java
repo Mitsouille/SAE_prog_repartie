@@ -11,6 +11,8 @@ import java.time.Duration;
 import java.util.Properties;
 import java.util.concurrent.ExecutionException;
 
+import org.json.JSONObject;
+
 public class AccidentService implements Service {
     private int PROXY_PORT;
     private String PROXY_URL;
@@ -30,7 +32,7 @@ public class AccidentService implements Service {
     }
 
     @Override
-    public String getMessage() throws RemoteException {
+    public JSONObject getMessage() throws RemoteException {
         try {
             HttpRequest request = HttpRequest.newBuilder()
                     .uri(URI.create(URL_API_INCIDENT))
@@ -42,8 +44,8 @@ public class AccidentService implements Service {
             if (response.statusCode() != 200) {
                 throw new RemoteException("Erreur HTTP: " + response.statusCode());
             }
-
-            return response.body();
+            JSONObject jsonRes = new JSONObject(response.body());
+            return jsonRes;
 
         } catch (InterruptedException | ExecutionException e) {
             throw new RemoteException("Erreur lors de l'appel HTTP: " + e.getMessage(), e);
