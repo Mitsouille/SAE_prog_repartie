@@ -48,6 +48,7 @@ public class ClientTest {
             String jsonRes2 = service.reserverTableJson(nouvelleResa);
             System.out.println("→ Réservation (doublon) :\n" + jsonRes2 + "\n");
 
+<<<<<<< HEAD
             // 7️⃣ Récupérer à nouveau toutes les réservations
             String jsonResApres = service.getToutesLesReservationsJson();
             System.out.println("→ Réservations après insert :\n" + jsonResApres + "\n");
@@ -56,6 +57,16 @@ public class ClientTest {
             String reqAnnule = "{\"idReservation\":6}";
             String jsonAnnule = service.annulerReservationJson(reqAnnule);
             System.out.println("→ Annulation id=6 :\n" + jsonAnnule + "\n");
+=======
+            // 7️⃣ Re-liste des réservations après insertion
+            String jsonResApres = service.getToutesLesReservationsJson();
+            System.out.println("→ Réservations après insert :\n" + jsonResApres + "\n");
+
+            // 8️⃣ Annulation de la réservation par téléphone + début
+            String reqAnnule = "{\"telephone\":\"0601020304\",\"debut\":\"2025-06-13T18:00:00\"}";
+            String jsonAnnule = service.annulerReservationJson(reqAnnule);
+            System.out.println("→ Annulation :\n" + jsonAnnule + "\n");
+>>>>>>> 26f519a (merge)
 
             // 9️⃣ Vérifier la liste finale
             String jsonFinal = service.getToutesLesReservationsJson();
