@@ -2,6 +2,7 @@
 import java.rmi.RemoteException;
 import java.sql.*;
 import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -138,48 +139,103 @@ public class ServiceRestaurantImpl implements ServiceRestaurant {
     @Override
     public String reserverTableJson(String requestJson) throws RemoteException {
         Map<String,String> m = parseJsonToMap(requestJson);
-        ReservationRequest req = new ReservationRequest(
-            Integer.parseInt(m.get("idTable")),
-            m.get("prenom"), m.get("nom"),
-            Integer.parseInt(m.get("nbConvives")),
-            m.get("tel"),
-            LocalDateTime.parse(m.get("debut")),
-            LocalDateTime.parse(m.get("fin"))
-        );
+        int idRestaurant = Integer.parseInt(m.get("idRestaurant"));
+        int nbConvives   = Integer.parseInt(m.get("nbConvives"));
+        String prenom    = m.get("prenom");
+        String nom       = m.get("nom");
+        String tel       = m.get("tel");
+        LocalDateTime debut = LocalDateTime.parse(m.get("debut"));
+        LocalDateTime fin   = LocalDateTime.parse(m.get("fin"));
 
-        // Vérif chevauchement
-        try (PreparedStatement ps = conn.prepareStatement(
-               "SELECT COUNT(*) FROM reservations WHERE id_table=? AND statut<>'annulee' AND ?<fin_reservation AND ?>debut_reservation")) {
-            ps.setInt(1, req.idTable);
-            ps.setTimestamp(2, Timestamp.valueOf(req.debut));
-            ps.setTimestamp(3, Timestamp.valueOf(req.fin));
+        // 1️⃣ Vérifier la capacité dispo dans le resto
+        String capSql = 
+        "SELECT NVL(SUM(capacite),0) FROM tables_restaurant WHERE id_restaurant = ?";
+        int capaciteTotale;
+        try (PreparedStatement ps = conn.prepareStatement(capSql)) {
+            ps.setInt(1, idRestaurant);
             try (ResultSet rs = ps.executeQuery()) {
-                if (rs.next() && rs.getInt(1) > 0) {
-                    return "{\"success\":false,\"message\":\"créneau indisponible\"}";
+                rs.next();
+                capaciteTotale = rs.getInt(1);
+            }
+        } catch (SQLException e) {
+            return "{\"error\":" + jsonEsc(e.getMessage()) + "}";
+        }
+
+        String resSql =
+        "SELECT NVL(SUM(r.nombre_convives),0) " +
+        "FROM reservations r " +
+        "JOIN tables_restaurant t ON r.id_table = t.id_table " +
+        "WHERE t.id_restaurant = ? " +
+        "  AND r.statut <> 'annulee' " +
+        "  AND ? < r.fin_reservation " +
+        "  AND ? > r.debut_reservation";
+        int convivesReserves;
+        try (PreparedStatement ps = conn.prepareStatement(resSql)) {
+            ps.setInt(1, idRestaurant);
+            ps.setTimestamp(2, Timestamp.valueOf(debut));
+            ps.setTimestamp(3, Timestamp.valueOf(fin));
+            try (ResultSet rs = ps.executeQuery()) {
+                rs.next();
+                convivesReserves = rs.getInt(1);
+            }
+        } catch (SQLException e) {
+            return "{\"error\":" + jsonEsc(e.getMessage()) + "}";
+        }
+
+        if (convivesReserves + nbConvives > capaciteTotale) {
+            return "{\"success\":false,\"message\":\"Capacité restaurant insuffisante pour ce créneau\"}";
+        }
+
+        // 2️⃣ Si ok, on choisit une table libre (plus simple : la première qui peut accueillir)
+        String findTable = 
+        "SELECT t.id_table FROM tables_restaurant t " +
+        "WHERE t.id_restaurant = ? AND t.capacite >= ? " +
+        "  AND NOT EXISTS ( " +
+        "    SELECT 1 FROM reservations r " +
+        "    WHERE r.id_table = t.id_table AND r.statut <> 'annulee' " +
+        "      AND ? < r.fin_reservation AND ? > r.debut_reservation ) " +
+        "ORDER BY t.capacite ASC FETCH FIRST 1 ROWS ONLY";
+        Integer idTableChoisie = null;
+        try (PreparedStatement ps = conn.prepareStatement(findTable)) {
+            ps.setInt(1, idRestaurant);
+            ps.setInt(2, nbConvives);
+            ps.setTimestamp(3, Timestamp.valueOf(debut));
+            ps.setTimestamp(4, Timestamp.valueOf(fin));
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    idTableChoisie = rs.getInt(1);
                 }
             }
         } catch (SQLException e) {
             return "{\"error\":" + jsonEsc(e.getMessage()) + "}";
         }
 
-        // Insertion
-        try (PreparedStatement ps = conn.prepareStatement(
-               "INSERT INTO reservations(id_table,prenom_client,nom_client,nombre_convives,telephone_client,debut_reservation,fin_reservation,statut) VALUES(?,?,?,?,?,?,?,'en_attente')")) {
-            ps.setInt(1, req.idTable);
-            ps.setString(2, req.prenom);
-            ps.setString(3, req.nom);
-            ps.setInt(4, req.nbConvives);
-            ps.setString(5, req.tel);
-            ps.setTimestamp(6, Timestamp.valueOf(req.debut));
-            ps.setTimestamp(7, Timestamp.valueOf(req.fin));
-            if (ps.executeUpdate() > 0) {
-                return "{\"success\":true,\"message\":\"réservation réussie\"}";
-            }
+        if (idTableChoisie == null) {
+            return "{\"success\":false,\"message\":\"Aucune table disponible pour cette taille de groupe\"}";
+        }
+
+        // 3️⃣ Insérer la réservation sur la table choisie
+        String insertSql =
+        "INSERT INTO reservations " +
+        "(id_table, prenom_client, nom_client, nombre_convives, telephone_client, " +
+        " debut_reservation, fin_reservation, statut) " +
+        "VALUES (?, ?, ?, ?, ?, ?, ?, 'en_attente')";
+        try (PreparedStatement ps = conn.prepareStatement(insertSql)) {
+            ps.setInt(1, idTableChoisie);
+            ps.setString(2, prenom);
+            ps.setString(3, nom);
+            ps.setInt(4, nbConvives);
+            ps.setString(5, tel);
+            ps.setTimestamp(6, Timestamp.valueOf(debut));
+            ps.setTimestamp(7, Timestamp.valueOf(fin));
+            ps.executeUpdate();
+            return "{\"success\":true,\"message\":\"Réservation enregistrée\",\"idTable\":" + idTableChoisie + "}";
         } catch (SQLException e) {
             return "{\"error\":" + jsonEsc(e.getMessage()) + "}";
         }
-        return "{\"success\":false,\"message\":\"échec insertion\"}";
     }
+
+
     
     private String jsonEsc(String s) {
         return "\"" + s
@@ -190,29 +246,43 @@ public class ServiceRestaurantImpl implements ServiceRestaurant {
 
     @Override
     public String annulerReservationJson(String requestJson) throws RemoteException {
-        // 1) Récupération des paramètres
+        // Parse du JSON { "prenom": "...", "nom": "...", "telephone": "...", "debut": "YYYY-MM-DDTHH:MM:SS" }
         Map<String,String> m = parseJsonToMap(requestJson);
-        String tel   = m.get("telephone");
-        LocalDateTime debut = LocalDateTime.parse(m.get("debut"));
+        String prenom    = m.get("prenom");
+        String nom       = m.get("nom");
+        String telephone = m.get("telephone");
+        LocalDateTime debut;
+        try {
+            debut = LocalDateTime.parse(m.get("debut"), DateTimeFormatter.ISO_LOCAL_DATE_TIME);
+        } catch (Exception ex) {
+            return "{\"success\":false,\"message\":\"format de date invalide pour 'debut'\"}";
+        }
 
-        // 2) Nouvelle requête : comparaison sur un Timestamp
-        String sql = "DELETE FROM reservations "
-                + "WHERE telephone_client = ? "
-                + "  AND debut_reservation = ?";
+        String sql = """
+        DELETE FROM reservations
+        WHERE prenom_client    = ?
+            AND nom_client       = ?
+            AND telephone_client = ?
+            AND debut_reservation = ?
+            AND statut <> 'annulee'
+        """;
         try (PreparedStatement ps = conn.prepareStatement(sql)) {
-            ps.setString(1, tel);
-            ps.setTimestamp(2, Timestamp.valueOf(debut));
+            ps.setString(1, prenom);
+            ps.setString(2, nom);
+            ps.setString(3, telephone);
+            ps.setTimestamp(4, Timestamp.valueOf(debut));
 
             int rows = ps.executeUpdate();
             if (rows > 0) {
                 return "{\"success\":true,\"deleted\":" + rows + "}";
             } else {
-                return "{\"success\":false,\"message\":\"Aucune réservation trouvée pour ce téléphone/créneau\"}";
+                return "{\"success\":false,\"message\":\"Aucune réservation trouvée pour ces critères\"}";
             }
         } catch (SQLException e) {
             return "{\"error\":" + jsonEsc(e.getMessage()) + "}";
         }
     }
+
 
     
 
