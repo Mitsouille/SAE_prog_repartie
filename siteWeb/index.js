@@ -56,7 +56,7 @@ function loadStations() {
 }
 
 function loadIncidents() {
-  fetch('http://localhost:8080/incidents')
+  fetch('https://100.64.80.245:8443/incidents')
     .then(r => r.json())
     .then(d => d.incidents.forEach(i => {
       const [lat, lon] = i.location.polyline.trim().split(/\s+/).map(parseFloat);
@@ -74,10 +74,10 @@ function loadWeather() {
     .catch(() => document.getElementById("weather").textContent = "Indisponible");
 }
 
-let selectedRestaurantId = null;
+let selectedRestaurantId = null;ù
 
 function loadRestaurants() {
-  fetch("http://localhost:8080/data/restaurants")
+  fetch("https://100.64.80.245:8443/data/restaurants")
     .then(r => r.json())
     .then(data => {
       data.restaurants.forEach(r => {
@@ -100,7 +100,7 @@ window.closeModal = () => {
 };
 
 function envoyerReservation(body) {
-  return fetch("http://localhost:8080/data/reserver", {
+  return fetch("https://100.64.80.245:8443/data/reserver", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body)
@@ -108,7 +108,7 @@ function envoyerReservation(body) {
 }
 
 function annulerReservation(body) {
-  return fetch("http://localhost:8080/data/annuler", {
+  return fetch("https://100.64.80.245:8443/data/annuler", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body)
@@ -130,7 +130,7 @@ document.addEventListener("DOMContentLoaded", () => {
       fin: form.fin.value
     };
 
-    const res = await fetch(`http://localhost:8080/data/placesDisponibles?idRestaurant=${selectedRestaurantId}&debut=${body.debut}&fin=${body.fin}`);
+    const res = await fetch(`https://100.64.80.245:8443/data/placesDisponibles?idRestaurant=${selectedRestaurantId}&debut=${body.debut}&fin=${body.fin}`);
     const dispo = await res.text();
     if (parseInt(dispo) < body.nbConvives) {
       alert("Pas assez de places disponibles.");
