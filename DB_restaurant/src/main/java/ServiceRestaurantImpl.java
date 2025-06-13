@@ -181,26 +181,37 @@ public class ServiceRestaurantImpl extends UnicastRemoteObject implements Servic
         }
         return "{\"success\":false,\"message\":\"échec insertion\"}";
     }
+    
+    private String jsonEsc(String s) {
+        return "\"" + s
+            .replace("\\", "\\\\")
+            .replace("\"", "\\\"")
+            + "\"";
+    }
 
     @Override
     public String annulerReservationJson(String requestJson) throws RemoteException {
         Map<String,String> m = parseJsonToMap(requestJson);
-        int id = Integer.parseInt(m.get("idReservation"));
-        try (PreparedStatement ps = conn.prepareStatement(
-               "DELETE FROM reservations WHERE id_reservation = ?")) {
-            ps.setInt(1, id);
-            if (ps.executeUpdate() > 0) {
-                return "{\"success\":true,\"id\":" + id + "}";
+        String tel   = m.get("telephone");
+        String debut = m.get("debut");
+
+        String sql = "DELETE FROM reservations "
+                + "WHERE telephone_client = ? "
+                + "  AND debut_reservation = TO_TIMESTAMP(?, 'YYYY-MM-DD\"T\"HH24:MI:SS')";
+        try (PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setString(1, tel);
+            ps.setString(2, debut);
+            int rows = ps.executeUpdate();
+            if (rows > 0) {
+                return "{\"success\":true,\"deleted\":" + rows + "}";
+            } else {
+                return "{\"success\":false,\"message\":\"Aucune réservation trouvée pour ce téléphone/créneau\"}";
             }
         } catch (SQLException e) {
             return "{\"error\":" + jsonEsc(e.getMessage()) + "}";
         }
-        return "{\"success\":false}";
     }
 
-    private String jsonEsc(String s) {
-        return "\"" + s.replace("\\","\\\\").replace("\"","\\\"") + "\"";
-    }
 
     private Map<String,String> parseJsonToMap(String json) {
         Map<String,String> map = new HashMap<>();
