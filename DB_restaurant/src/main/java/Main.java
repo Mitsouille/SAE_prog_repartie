@@ -33,7 +33,7 @@ public class Main {
         PASSWORD_DB = props.getProperty("PASSWORD_DB");
         USER_DB = props.getProperty("USER_DB");
         RMI_PORT = Integer.parseInt(props.getProperty("RMI_PORT"));
-        RMI_HOST = props.getProperty(RMI_HOST);
+        RMI_HOST = props.getProperty("RMI_HOST");
 
     }
 
