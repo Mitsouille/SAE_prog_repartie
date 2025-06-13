@@ -1,6 +1,10 @@
-import com.sun.net.httpserver.HttpServer;
+
 import com.sun.net.httpserver.HttpHandler;
 import com.sun.net.httpserver.HttpExchange;
+import com.sun.net.httpserver.*;
+import javax.net.ssl.*;
+import java.io.*;
+import java.security.KeyStore;
 
 import java.io.IOException;
 import java.io.OutputStream;
@@ -12,28 +16,54 @@ import java.rmi.registry.Registry;
 import java.util.HashMap;
 import java.util.Map;
 
+
+
 public class Serveur {
-    private HttpServer serveur;
-    private final int portHttp;
+    private HttpsServer serveur;
+    private final int portHttps;
     private final String hostRmi;
     private final int portRmi;
 
-    public Serveur(int portHttp, String hostRmi, int portRmi) {
-        this.portHttp = portHttp;
+    public Serveur(int portHttps, String hostRmi, int portRmi) {
+        this.portHttps = portHttps;
         this.hostRmi = hostRmi;
         this.portRmi = portRmi;
     }
 
-    public void demarrer() throws IOException {
-        serveur = HttpServer.create(new InetSocketAddress("0.0.0.0", portHttp), 0);
+    public void demarrer() throws Exception {
+        // Charger le keystore
+        char[] password = "azerty".toCharArray();
+        KeyStore ks = KeyStore.getInstance("JKS");
+        ks.load(new FileInputStream("keystore.jks"), password);
 
-        // Création de routes avec nom du service RMI différent
+        // Initialiser le KeyManagerFactory
+        KeyManagerFactory kmf = KeyManagerFactory.getInstance("SunX509");
+        kmf.init(ks, password);
+
+        // Créer le contexte SSL
+        SSLContext sslContext = SSLContext.getInstance("TLS");
+        sslContext.init(kmf.getKeyManagers(), null, null);
+
+        // Créer le serveur HTTPS
+        serveur = HttpsServer.create(new InetSocketAddress(portHttps), 0);
+        serveur.setHttpsConfigurator(new HttpsConfigurator(sslContext) {
+            public void configure(HttpsParameters params) {
+                SSLContext c = getSSLContext();
+                SSLEngine engine = c.createSSLEngine();
+                params.setNeedClientAuth(false);
+                params.setCipherSuites(engine.getEnabledCipherSuites());
+                params.setProtocols(engine.getEnabledProtocols());
+                params.setSSLParameters(c.getDefaultSSLParameters());
+            }
+        });
+
+        // Ajout des routes
         serveur.createContext("/data", new HandlerRestaurantRMI(hostRmi, portRmi));
         serveur.createContext("/incidents", new HandlerRMI(hostRmi, portRmi));
 
         serveur.setExecutor(null);
         serveur.start();
-        System.out.println("Serveur HTTP démarré sur le port " + portHttp);
+        System.out.println("Serveur HTTPS démarré sur le port " + portHttps);
     }
 
     static class HandlerRestaurantRMI implements HttpHandler {
