@@ -3,9 +3,11 @@ import java.rmi.RemoteException;
 import java.sql.*;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
-public class ServiceRestaurantImpl extends UnicastRemoteObject implements ServiceRestaurant {
+public class ServiceRestaurantImpl implements ServiceRestaurant {
     private final Connection conn;
 
     public ServiceRestaurantImpl() throws RemoteException {
@@ -144,8 +146,42 @@ public class ServiceRestaurantImpl extends UnicastRemoteObject implements Servic
         return sb.toString();
     }
 
+
+
+    private Map<String, String> parseJsonToMap(String json) {
+        Map<String, String> result = new HashMap<>();
+        json = json.trim();
+        if (json.startsWith("{")) json = json.substring(1);
+        if (json.endsWith("}")) json = json.substring(0, json.length() - 1);
+
+        String[] pairs = json.split(",");
+        for (String pair : pairs) {
+            String[] keyValue = pair.split(":", 2);
+            if (keyValue.length == 2) {
+                String key = keyValue[0].trim().replaceAll("^\"|\"$", "");
+                String value = keyValue[1].trim().replaceAll("^\"|\"$", "");
+                result.put(key, value);
+            }
+        }
+        return result;
+    }
+
+
     @Override
-    public String reserverTable(ReservationRequest req) throws RemoteException {
+    public String reserverTable(String str) throws RemoteException {
+        Map<String, String> map = parseJsonToMap(str);
+
+        int idTable = Integer.parseInt(map.get("idTable"));
+        String prenom = map.get("prenom");
+        String nom = map.get("nom");
+        int nbConvives = Integer.parseInt(map.get("nbConvives"));
+        String tel = map.get("tel");
+        LocalDateTime debut = LocalDateTime.parse(map.get("debut"));
+        LocalDateTime fin = LocalDateTime.parse(map.get("fin"));
+
+        ReservationRequest req = new ReservationRequest(idTable, prenom, nom, nbConvives, tel, debut, fin);
+
+
         try (PreparedStatement ps = conn.prepareStatement(
                "SELECT COUNT(*) FROM reservations WHERE id_table = ? AND statut <> 'annulee' " +
                "AND ? < fin_reservation AND ? > debut_reservation")) {

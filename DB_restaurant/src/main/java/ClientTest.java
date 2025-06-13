@@ -23,10 +23,10 @@ public class ClientTest {
                 LocalDateTime.of(2025, 6, 13, 19, 0),
                 LocalDateTime.of(2025, 6, 13, 20, 0)
             );
-            String r1 = service.reserverTable(req);
-            System.out.println("📞 Réservation libre → " + r1);
-            String r2 = service.reserverTable(req);
-            System.out.println("📞 Réservation en double → " + r2);
+            //String r1 = service.reserverTable(req);
+            //System.out.println("📞 Réservation libre → " + r1);
+            //String r2 = service.reserverTable(req);
+            //System.out.println("📞 Réservation en double → " + r2);
 
             String allResaAvant = service.getToutesLesReservations();
             System.out.println("\n📅 Réservations AVANT annulation :\n" + allResaAvant);
