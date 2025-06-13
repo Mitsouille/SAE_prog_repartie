@@ -1,12 +1,11 @@
 import java.rmi.Remote;
 import java.rmi.RemoteException;
-import java.time.LocalDateTime;
 
 public interface ServiceRestaurant extends Remote {
-    String getTousLesRestaurants() throws RemoteException;
-    String getTablesParRestaurant(int idRestaurant) throws RemoteException;
-    String getPlacesDisponibles(int idRestaurant, LocalDateTime debut, LocalDateTime fin) throws RemoteException;
-    String getToutesLesReservations() throws RemoteException;
-    String reserverTable(String req) throws RemoteException;
-    String annulerReservation(int idReservation) throws RemoteException;
+    String getTousLesRestaurantsJson()               throws RemoteException;
+    String getTablesParRestaurantJson(String json)   throws RemoteException;
+    String getPlacesDisponiblesJson(String json)     throws RemoteException;
+    String getToutesLesReservationsJson()            throws RemoteException;
+    String reserverTableJson(String json)            throws RemoteException;
+    String annulerReservationJson(String json)       throws RemoteException;
 }

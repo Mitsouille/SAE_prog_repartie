@@ -1,13 +1,12 @@
-import java.rmi.server.UnicastRemoteObject;
+
 import java.rmi.RemoteException;
+import java.rmi.server.UnicastRemoteObject;
 import java.sql.*;
 import java.time.LocalDateTime;
-import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 
-public class ServiceRestaurantImpl implements ServiceRestaurant {
+public class ServiceRestaurantImpl extends UnicastRemoteObject implements ServiceRestaurant {
     private final Connection conn;
 
     public ServiceRestaurantImpl() throws RemoteException {
@@ -23,89 +22,80 @@ public class ServiceRestaurantImpl implements ServiceRestaurant {
     }
 
     @Override
-    public String getTousLesRestaurants() throws RemoteException {
-        List<Restaurant> liste = new ArrayList<>();
+    public String getTousLesRestaurantsJson() throws RemoteException {
+        StringBuilder sb = new StringBuilder("{\"restaurants\":[");
         try (Statement st = conn.createStatement();
              ResultSet rs = st.executeQuery(
                "SELECT id_restaurant, nom, adresse, latitude, longitude, note_moyenne FROM restaurants")) {
+            boolean first = true;
             while (rs.next()) {
-                liste.add(new Restaurant(
-                    rs.getInt(1),
-                    rs.getString(2),
-                    rs.getString(3),
-                    rs.getDouble(4),
-                    rs.getDouble(5),
-                    rs.getDouble(6)
-                ));
+                if (!first) sb.append(",");
+                first = false;
+                sb.append("{")
+                  .append("\"id\":").append(rs.getInt(1)).append(",")
+                  .append("\"nom\":").append(jsonEsc(rs.getString(2))).append(",")
+                  .append("\"adresse\":").append(jsonEsc(rs.getString(3))).append(",")
+                  .append("\"latitude\":").append(rs.getDouble(4)).append(",")
+                  .append("\"longitude\":").append(rs.getDouble(5)).append(",")
+                  .append("\"note\":").append(rs.getDouble(6))
+                  .append("}");
             }
         } catch (SQLException e) {
-            throw new RemoteException(e.getMessage(), e);
+            return "{\"error\":" + jsonEsc(e.getMessage()) + "}";
         }
-        StringBuilder sb = new StringBuilder();
-        for (Restaurant r : liste) {
-            sb.append("[")
-              .append(r.getId())
-              .append("] ")
-              .append(r.getNom())
-              .append(" | ")
-              .append(r.getAdresse())
-              .append(" | note:")
-              .append(r.getNote())
-              .append("\n");
-        }
+        sb.append("]}");
         return sb.toString();
     }
 
     @Override
-    public String getTablesParRestaurant(int idRestaurant) throws RemoteException {
-        List<Table> liste = new ArrayList<>();
+    public String getTablesParRestaurantJson(String requestJson) throws RemoteException {
+        Map<String,String> m = parseJsonToMap(requestJson);
+        int idRestaurant = Integer.parseInt(m.get("idRestaurant"));
+        StringBuilder sb = new StringBuilder("{\"tables\":[");
         try (PreparedStatement ps = conn.prepareStatement(
-               "SELECT id_table, numero_table, capacite, exterieur FROM tables_restaurant WHERE id_restaurant = ?")) {
+               "SELECT id_table, numero_table, capacite, exterieur FROM tables_restaurant WHERE id_restaurant=?")) {
             ps.setInt(1, idRestaurant);
             try (ResultSet rs = ps.executeQuery()) {
+                boolean first = true;
                 while (rs.next()) {
-                    liste.add(new Table(
-                        rs.getInt(1),
-                        rs.getString(2),
-                        rs.getInt(3),
-                        "Y".equals(rs.getString(4))
-                    ));
+                    if (!first) sb.append(",");
+                    first = false;
+                    sb.append("{")
+                      .append("\"id\":").append(rs.getInt(1)).append(",")
+                      .append("\"numero\":").append(jsonEsc(rs.getString(2))).append(",")
+                      .append("\"capacite\":").append(rs.getInt(3)).append(",")
+                      .append("\"exterieur\":").append(rs.getString(4).equals("Y"))
+                      .append("}");
                 }
             }
         } catch (SQLException e) {
-            throw new RemoteException(e.getMessage(), e);
+            return "{\"error\":" + jsonEsc(e.getMessage()) + "}";
         }
-        StringBuilder sb = new StringBuilder();
-        for (Table t : liste) {
-            sb.append("Table ")
-              .append(t.getNumero())
-              .append(" (cap:")
-              .append(t.getCapacite())
-              .append(", ext=")
-              .append(t.isExterieur())
-              .append(")\n");
-        }
+        sb.append("]}");
         return sb.toString();
     }
 
     @Override
-    public String getPlacesDisponibles(int idRestaurant, LocalDateTime debut, LocalDateTime fin) throws RemoteException {
-        int total = 0;
+    public String getPlacesDisponiblesJson(String requestJson) throws RemoteException {
+        Map<String,String> m = parseJsonToMap(requestJson);
+        int idRestaurant = Integer.parseInt(m.get("idRestaurant"));
+        LocalDateTime debut = LocalDateTime.parse(m.get("debut"));
+        LocalDateTime fin   = LocalDateTime.parse(m.get("fin"));
+
+        int total = 0, reserved = 0;
         try (PreparedStatement ps1 = conn.prepareStatement(
-               "SELECT NVL(SUM(capacite),0) FROM tables_restaurant WHERE id_restaurant = ?")) {
+               "SELECT NVL(SUM(capacite),0) FROM tables_restaurant WHERE id_restaurant=?")) {
             ps1.setInt(1, idRestaurant);
             try (ResultSet rs = ps1.executeQuery()) {
                 if (rs.next()) total = rs.getInt(1);
             }
         } catch (SQLException e) {
-            throw new RemoteException(e.getMessage(), e);
+            return "{\"error\":" + jsonEsc(e.getMessage()) + "}";
         }
-        int reserved = 0;
         try (PreparedStatement ps2 = conn.prepareStatement(
                "SELECT NVL(SUM(r.nombre_convives),0) " +
-               "FROM reservations r JOIN tables_restaurant t ON r.id_table = t.id_table " +
-               "WHERE t.id_restaurant = ? AND r.statut <> 'annulee' " +
-               "AND ? < r.fin_reservation AND ? > r.debut_reservation")) {
+               "FROM reservations r JOIN tables_restaurant t ON r.id_table=t.id_table " +
+               "WHERE t.id_restaurant=? AND r.statut<>'annulee' AND ?<r.fin_reservation AND ?>r.debut_reservation")) {
             ps2.setInt(1, idRestaurant);
             ps2.setTimestamp(2, Timestamp.valueOf(debut));
             ps2.setTimestamp(3, Timestamp.valueOf(fin));
@@ -113,95 +103,69 @@ public class ServiceRestaurantImpl implements ServiceRestaurant {
                 if (rs.next()) reserved = rs.getInt(1);
             }
         } catch (SQLException e) {
-            throw new RemoteException(e.getMessage(), e);
+            return "{\"error\":" + jsonEsc(e.getMessage()) + "}";
         }
         int dispo = Math.max(total - reserved, 0);
-        return "Places disponibles: " + dispo;
+        return "{\"placesDisponibles\":" + dispo + "}";
     }
 
     @Override
-    public String getToutesLesReservations() throws RemoteException {
-        List<Reservation> liste = new ArrayList<>();
+    public String getToutesLesReservationsJson() throws RemoteException {
+        StringBuilder sb = new StringBuilder("{\"reservations\":[");
         try (Statement st = conn.createStatement();
              ResultSet rs = st.executeQuery(
                "SELECT id_reservation, prenom_client, nom_client, nombre_convives, statut, debut_reservation, fin_reservation FROM reservations")) {
+            boolean first = true;
             while (rs.next()) {
-                liste.add(new Reservation(
-                    rs.getInt(1),
-                    rs.getString(2),
-                    rs.getString(3),
-                    rs.getInt(4),
-                    rs.getString(5),
-                    rs.getTimestamp(6).toLocalDateTime(),
-                    rs.getTimestamp(7).toLocalDateTime()
-                ));
+                if (!first) sb.append(",");
+                first = false;
+                sb.append("{")
+                  .append("\"id\":").append(rs.getInt(1)).append(",")
+                  .append("\"prenom\":").append(jsonEsc(rs.getString(2))).append(",")
+                  .append("\"nom\":").append(jsonEsc(rs.getString(3))).append(",")
+                  .append("\"convives\":").append(rs.getInt(4)).append(",")
+                  .append("\"statut\":").append(jsonEsc(rs.getString(5))).append(",")
+                  .append("\"debut\":").append(jsonEsc(rs.getTimestamp(6).toLocalDateTime().toString())).append(",")
+                  .append("\"fin\":").append(jsonEsc(rs.getTimestamp(7).toLocalDateTime().toString()))
+                  .append("}");
             }
         } catch (SQLException e) {
-            throw new RemoteException(e.getMessage(), e);
+            return "{\"error\":" + jsonEsc(e.getMessage()) + "}";
         }
-        StringBuilder sb = new StringBuilder();
-        for (Reservation r : liste) {
-            sb.append(r.toString()).append("\n");
-        }
+        sb.append("]}");
         return sb.toString();
     }
 
-
-
-    private Map<String, String> parseJsonToMap(String json) {
-        Map<String, String> result = new HashMap<>();
-        json = json.trim();
-        if (json.startsWith("{")) json = json.substring(1);
-        if (json.endsWith("}")) json = json.substring(0, json.length() - 1);
-
-        String[] pairs = json.split(",");
-        for (String pair : pairs) {
-            String[] keyValue = pair.split(":", 2);
-            if (keyValue.length == 2) {
-                String key = keyValue[0].trim().replaceAll("^\"|\"$", "");
-                String value = keyValue[1].trim().replaceAll("^\"|\"$", "");
-                result.put(key, value);
-            }
-        }
-        return result;
-    }
-
-
     @Override
-    public String reserverTable(String str) throws RemoteException {
-        Map<String, String> map = parseJsonToMap(str);
+    public String reserverTableJson(String requestJson) throws RemoteException {
+        Map<String,String> m = parseJsonToMap(requestJson);
+        ReservationRequest req = new ReservationRequest(
+            Integer.parseInt(m.get("idTable")),
+            m.get("prenom"), m.get("nom"),
+            Integer.parseInt(m.get("nbConvives")),
+            m.get("tel"),
+            LocalDateTime.parse(m.get("debut")),
+            LocalDateTime.parse(m.get("fin"))
+        );
 
-        int idTable = Integer.parseInt(map.get("idTable"));
-        String prenom = map.get("prenom");
-        String nom = map.get("nom");
-        int nbConvives = Integer.parseInt(map.get("nbConvives"));
-        String tel = map.get("tel");
-        LocalDateTime debut = LocalDateTime.parse(map.get("debut"));
-        LocalDateTime fin = LocalDateTime.parse(map.get("fin"));
-
-        ReservationRequest req = new ReservationRequest(idTable, prenom, nom, nbConvives, tel, debut, fin);
-
-
+        // Vérif chevauchement
         try (PreparedStatement ps = conn.prepareStatement(
-               "SELECT COUNT(*) FROM reservations WHERE id_table = ? AND statut <> 'annulee' " +
-               "AND ? < fin_reservation AND ? > debut_reservation")) {
+               "SELECT COUNT(*) FROM reservations WHERE id_table=? AND statut<>'annulee' AND ?<fin_reservation AND ?>debut_reservation")) {
             ps.setInt(1, req.idTable);
             ps.setTimestamp(2, Timestamp.valueOf(req.debut));
             ps.setTimestamp(3, Timestamp.valueOf(req.fin));
             try (ResultSet rs = ps.executeQuery()) {
                 if (rs.next() && rs.getInt(1) > 0) {
-                    return "FAIL: créneau indisponible";
+                    return "{\"success\":false,\"message\":\"créneau indisponible\"}";
                 }
             }
         } catch (SQLException e) {
-            if (e.getErrorCode() == 20001) {
-                return "FAIL: créneau indisponible";
-            }
-            throw new RemoteException(e.getMessage(), e);
+            return "{\"error\":" + jsonEsc(e.getMessage()) + "}";
         }
+
+        // Insertion
         try (PreparedStatement ps = conn.prepareStatement(
-               "INSERT INTO reservations (id_table, prenom_client, nom_client, nombre_convives, " +
-               "telephone_client, debut_reservation, fin_reservation, statut) VALUES (?, ?, ?, ?, ?, ?, ?, 'en_attente')")) {
+               "INSERT INTO reservations(id_table,prenom_client,nom_client,nombre_convives,telephone_client,debut_reservation,fin_reservation,statut) VALUES(?,?,?,?,?,?,?,'en_attente')")) {
             ps.setInt(1, req.idTable);
             ps.setString(2, req.prenom);
             ps.setString(3, req.nom);
@@ -210,25 +174,49 @@ public class ServiceRestaurantImpl implements ServiceRestaurant {
             ps.setTimestamp(6, Timestamp.valueOf(req.debut));
             ps.setTimestamp(7, Timestamp.valueOf(req.fin));
             if (ps.executeUpdate() > 0) {
-                return "SUCCESS: réservation réussie";
+                return "{\"success\":true,\"message\":\"réservation réussie\"}";
             }
         } catch (SQLException e) {
-            throw new RemoteException(e.getMessage(), e);
+            return "{\"error\":" + jsonEsc(e.getMessage()) + "}";
         }
-        return "FAIL: échec de l'insertion";
+        return "{\"success\":false,\"message\":\"échec insertion\"}";
     }
 
     @Override
-    public String annulerReservation(int idReservation) throws RemoteException {
+    public String annulerReservationJson(String requestJson) throws RemoteException {
+        Map<String,String> m = parseJsonToMap(requestJson);
+        int id = Integer.parseInt(m.get("idReservation"));
         try (PreparedStatement ps = conn.prepareStatement(
                "DELETE FROM reservations WHERE id_reservation = ?")) {
-            ps.setInt(1, idReservation);
+            ps.setInt(1, id);
             if (ps.executeUpdate() > 0) {
-                return "SUCCESS: réservation " + idReservation + " annulée";
+                return "{\"success\":true,\"id\":" + id + "}";
             }
         } catch (SQLException e) {
-            throw new RemoteException(e.getMessage(), e);
+            return "{\"error\":" + jsonEsc(e.getMessage()) + "}";
         }
-        return "FAIL: impossible d'annuler " + idReservation;
+        return "{\"success\":false}";
     }
+
+    private String jsonEsc(String s) {
+        return "\"" + s.replace("\\","\\\\").replace("\"","\\\"") + "\"";
+    }
+
+    private Map<String,String> parseJsonToMap(String json) {
+        Map<String,String> map = new HashMap<>();
+        json = json.trim();
+        if (json.startsWith("{")) json = json.substring(1);
+        if (json.endsWith("}"))   json = json.substring(0,json.length()-1);
+        for (String pair : json.split(",")) {
+            String[] kv = pair.split(":",2);
+            if (kv.length==2) {
+                String k = kv[0].trim().replaceAll("^\"|\"$","");
+                String v = kv[1].trim().replaceAll("^\"|\"$","");
+                map.put(k,v);
+            }
+        }
+        return map;
+    }
+
+    
 }

@@ -9,7 +9,6 @@ import java.nio.charset.StandardCharsets;
 import java.rmi.registry.LocateRegistry;
 import java.rmi.registry.Registry;
 import java.time.LocalDateTime;
-import java.time.format.DateTimeFormatter;
 
 public class Serveur {
     private HttpServer serveur;
@@ -26,167 +25,122 @@ public class Serveur {
     public void demarrer() throws IOException {
         serveur = HttpServer.create(new InetSocketAddress("0.0.0.0", portHttp), 0);
 
-        // Création de routes avec nom du service RMI différent
-        serveur.createContext("/data", new HandlerRestaurantRMI(hostRmi, portRmi));
-        serveur.createContext("/incidents", new HandlerRMI(hostRmi, portRmi));
+        // Contextes REST pour le service Restaurant
+        serveur.createContext("/restaurants", new HandlerResto(hostRmi, portRmi));
+        serveur.createContext("/reservations", new HandlerResto(hostRmi, portRmi));
+        serveur.createContext("/tables", new HandlerResto(hostRmi, portRmi));
+        serveur.createContext("/placesDisponibles", new HandlerResto(hostRmi, portRmi));
+        serveur.createContext("/reserver", new HandlerResto(hostRmi, portRmi));
+        serveur.createContext("/annuler", new HandlerResto(hostRmi, portRmi));
 
         serveur.setExecutor(null);
         serveur.start();
         System.out.println("Serveur HTTP démarré sur le port " + portHttp);
     }
 
-    static class HandlerRestaurantRMI implements HttpHandler {
+    static class HandlerResto implements HttpHandler {
         private final String host;
         private final int port;
 
-        public HandlerRestaurantRMI(String host, int port) {
+        HandlerResto(String host, int port) {
             this.host = host;
             this.port = port;
         }
 
         @Override
-        public void handle(HttpExchange echange) throws IOException {
-            String path = echange.getRequestURI().getPath();
-            String query = echange.getRequestURI().getQuery();
-            String method = echange.getRequestMethod();
-
+        public void handle(HttpExchange ex) throws IOException {
             // CORS
-            String origin = echange.getRequestHeaders().getFirst("Origin");
+            String origin = ex.getRequestHeaders().getFirst("Origin");
             if (origin != null) {
-                echange.getResponseHeaders().add("Access-Control-Allow-Origin", origin);
+                ex.getResponseHeaders().add("Access-Control-Allow-Origin", origin);
             }
-            echange.getResponseHeaders().add("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
-            echange.getResponseHeaders().add("Access-Control-Allow-Headers", "*");
-
-            if ("OPTIONS".equalsIgnoreCase(method)) {
-                echange.sendResponseHeaders(204, -1);
+            ex.getResponseHeaders().add("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+            ex.getResponseHeaders().add("Access-Control-Allow-Headers", "*");
+            if ("OPTIONS".equalsIgnoreCase(ex.getRequestMethod())) {
+                ex.sendResponseHeaders(204, -1);
                 return;
             }
+
+            String path  = ex.getRequestURI().getPath();
+            String query = ex.getRequestURI().getQuery();
+            String jsonResponse;
 
             try {
                 Registry reg = LocateRegistry.getRegistry(host, port);
                 ServiceRestaurant service = (ServiceRestaurant) reg.lookup("ServiceRestaurant");
 
-                String jsonResponse;
-
                 if (path.endsWith("/restaurants")) {
-                    jsonResponse = service.getTousLesRestaurants();
+                    jsonResponse = service.getTousLesRestaurantsJson();
 
                 } else if (path.endsWith("/reservations")) {
-                    jsonResponse = service.getToutesLesReservations();
+                    jsonResponse = service.getToutesLesReservationsJson();
 
                 } else if (path.endsWith("/tables")) {
-                    int idRestaurant = getQueryParamInt(query, "idRestaurant");
-                    jsonResponse = service.getTablesParRestaurant(idRestaurant);
+                    int idR = getIntParam(query, "idRestaurant");
+                    String req = "{\"idRestaurant\":" + idR + "}";
+                    jsonResponse = service.getTablesParRestaurantJson(req);
 
                 } else if (path.endsWith("/placesDisponibles")) {
-                    int idRestaurant = getQueryParamInt(query, "idRestaurant");
-                    LocalDateTime debut = getQueryParamDateTime(query, "debut");
-                    LocalDateTime fin = getQueryParamDateTime(query, "fin");
-                    jsonResponse = service.getPlacesDisponibles(idRestaurant, debut, fin);
+                    int idR = getIntParam(query, "idRestaurant");
+                    String debut = getParam(query, "debut");
+                    String fin   = getParam(query, "fin");
+                    String req = String.format(
+                        "{\"idRestaurant\":%d,\"debut\":\"%s\",\"fin\":\"%s\"}",
+                        idR, debut, fin
+                    );
+                    jsonResponse = service.getPlacesDisponiblesJson(req);
 
-                } else if (path.endsWith("/reserver") && "POST".equalsIgnoreCase(method)) {
-                    String body = new String(echange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8);
-                    jsonResponse = service.reserverTable(body);
+                } else if (path.endsWith("/reserver")) {
+                    String body = new String(ex.getRequestBody().readAllBytes(), StandardCharsets.UTF_8);
+                    jsonResponse = service.reserverTableJson(body);
 
                 } else if (path.endsWith("/annuler")) {
-                    int idReservation = getQueryParamInt(query, "idReservation");
-                    jsonResponse = service.annulerReservation(idReservation);
+                    int idRes = getIntParam(query, "idReservation");
+                    String req = "{\"idReservation\":" + idRes + "}";
+                    jsonResponse = service.annulerReservationJson(req);
 
                 } else {
                     throw new IllegalArgumentException("Chemin inconnu : " + path);
                 }
-                System.out.println("Réponse envoyée : " + jsonResponse);
-                sendResponse(echange, 200, jsonResponse);
+
+                sendJson(ex, 200, jsonResponse);
 
             } catch (Exception e) {
-                sendResponse(echange, 500, "{\"erreur\": \"" + e.getMessage().replace("\"", "\\\"") + "\"}");
+                sendJson(ex, 500,
+                  "{\"error\":\"" + e.getMessage().replace("\"","\\\"") + "\"}"
+                );
             }
         }
 
-        private void sendResponse(HttpExchange echange, int status, String json) throws IOException {
+        private void sendJson(HttpExchange ex, int status, String json) throws IOException {
             byte[] bytes = json.getBytes(StandardCharsets.UTF_8);
-            echange.getResponseHeaders().set("Content-Type", "application/json; charset=UTF-8");
-            echange.sendResponseHeaders(status, bytes.length);
-            try (OutputStream os = echange.getResponseBody()) {
+            ex.getResponseHeaders().set("Content-Type", "application/json; charset=UTF-8");
+            ex.sendResponseHeaders(status, bytes.length);
+            try (OutputStream os = ex.getResponseBody()) {
                 os.write(bytes);
             }
         }
 
-        private int getQueryParamInt(String query, String key) {
+        private int getIntParam(String query, String key) {
             if (query == null) return -1;
-            for (String param : query.split("&")) {
-                String[] parts = param.split("=");
-                if (parts.length == 2 && parts[0].equals(key)) {
-                    return Integer.parseInt(parts[1]);
+            for (String p : query.split("&")) {
+                String[] kv = p.split("=",2);
+                if (kv.length == 2 && kv[0].equals(key)) {
+                    return Integer.parseInt(kv[1]);
                 }
             }
             return -1;
         }
 
-        private LocalDateTime getQueryParamDateTime(String query, String key) {
-            if (query == null) return null;
-            for (String param : query.split("&")) {
-                String[] parts = param.split("=");
-                if (parts.length == 2 && parts[0].equals(key)) {
-                    return LocalDateTime.parse(parts[1], DateTimeFormatter.ISO_LOCAL_DATE_TIME);
+        private String getParam(String query, String key) {
+            if (query == null) return "";
+            for (String p : query.split("&")) {
+                String[] kv = p.split("=",2);
+                if (kv.length == 2 && kv[0].equals(key)) {
+                    return kv[1];
                 }
             }
-            return null;
-        }
-    }
-
-
-    static class HandlerRMI implements HttpHandler {
-        private final String host;
-        private final int port;
-        public HandlerRMI(String host, int port) {
-            this.host = host;
-            this.port = port;
-        }
-
-        @Override
-        public void handle(HttpExchange echange) throws IOException {
-            String origin = echange.getRequestHeaders().getFirst("Origin");
-            if (origin != null) {
-                echange.getResponseHeaders().add("Access-Control-Allow-Origin", origin);
-            }
-
-            echange.getResponseHeaders().add("Access-Control-Allow-Methods", "GET, OPTIONS");
-            echange.getResponseHeaders().add("Access-Control-Allow-Headers", "*");
-
-            if ("OPTIONS".equalsIgnoreCase(echange.getRequestMethod())) {
-                echange.sendResponseHeaders(204, -1); // No Content
-                return;
-            }
-
-            try {
-                Registry reg = LocateRegistry.getRegistry(host, port);
-                Service service = (Service) reg.lookup("ServiceIncidents");
-
-                // Appel du service
-                String reponseJson = service.getMessage();  // On suppose que ça retourne un JSON
-
-                System.out.println("Réponse envoyée : " + reponseJson);
-                
-                byte[] bytes = reponseJson.getBytes(StandardCharsets.UTF_8);
-                echange.getResponseHeaders().set("Content-Type", "application/json; charset=UTF-8");
-                echange.sendResponseHeaders(200, bytes.length);
-
-                try (OutputStream os = echange.getResponseBody()) {
-                    os.write(bytes);
-                }
-
-            } catch (Exception e) {
-                String erreur = "{\"erreur\": \"" + e.getMessage().replace("\"", "\\\"") + "\"}";
-                byte[] erreurBytes = erreur.getBytes(StandardCharsets.UTF_8);
-                echange.getResponseHeaders().set("Content-Type", "application/json; charset=UTF-8");
-                echange.sendResponseHeaders(500, erreurBytes.length);
-
-                try (OutputStream os = echange.getResponseBody()) {
-                    os.write(erreurBytes);
-                }
-            }
+            return "";
         }
     }
 }
