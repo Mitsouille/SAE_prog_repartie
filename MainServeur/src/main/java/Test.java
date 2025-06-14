@@ -13,7 +13,7 @@ public class Test {
             Service service = (Service) registry.lookup("service");
 
             // Appeler la méthode distante
-            JSONObject message = service.getMessage();
+            String message = service.getMessage();
 
             System.out.println("Message reçu du service RMI : " + message);
 

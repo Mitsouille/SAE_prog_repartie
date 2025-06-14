@@ -23,7 +23,6 @@ import com.sun.net.httpserver.HttpsConfigurator;
 import com.sun.net.httpserver.HttpsParameters;
 import com.sun.net.httpserver.HttpsServer;
 
-
 public class Serveur {
     private HttpsServer serveur;
     private final int portHttps;
@@ -125,9 +124,12 @@ public class Serveur {
                     String body = new String(echange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8);
                     jsonResponse = service.reserverTableJson(body);
 
+                } else if (path.endsWith("/annuler") && "POST".equalsIgnoreCase(method)) {
+                    String body = new String(echange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8);
+                    System.out.println("Corps reçu pour annuler : " + body);
+                    jsonResponse = service.annulerReservationJson(body);
                 } else if (path.endsWith("/annuler")) {
-                    String jsonParams = queryToJsonString(query);
-                    jsonResponse = service.annulerReservationJson(jsonParams);
+                    throw new IllegalArgumentException("Appel à /annuler sans POST");
 
                 } else {
                     throw new IllegalArgumentException("Chemin inconnu : " + path);
@@ -150,7 +152,8 @@ public class Serveur {
         }
 
         public static String queryToJsonString(String query) {
-            if (query == null || query.isEmpty()) return "{}";
+            if (query == null || query.isEmpty())
+                return "{}";
 
             Map<String, String> params = new HashMap<>();
             for (String param : query.split("&")) {
@@ -176,7 +179,8 @@ public class Serveur {
                 String key = entry.getKey();
                 String value = entry.getValue();
 
-                // Si la valeur est un nombre (int), on l'insère sans guillemets, sinon avec guillemets
+                // Si la valeur est un nombre (int), on l'insère sans guillemets, sinon avec
+                // guillemets
                 if (value.matches("-?\\d+")) {
                     sb.append("\"").append(key).append("\":").append(value);
                 } else {
@@ -190,10 +194,10 @@ public class Serveur {
 
     }
 
-
     static class HandlerRMI implements HttpHandler {
         private final String host;
         private final int port;
+
         public HandlerRMI(String host, int port) {
             this.host = host;
             this.port = port;
@@ -204,13 +208,16 @@ public class Serveur {
             String origin = echange.getRequestHeaders().getFirst("Origin");
             if (origin != null) {
                 echange.getResponseHeaders().add("Access-Control-Allow-Origin", origin);
+            } else {
+                echange.getResponseHeaders().add("Access-Control-Allow-Origin", "*");
             }
 
             echange.getResponseHeaders().add("Access-Control-Allow-Methods", "GET, OPTIONS");
             echange.getResponseHeaders().add("Access-Control-Allow-Headers", "*");
+            echange.getResponseHeaders().set("Content-Type", "application/json; charset=UTF-8");
 
             if ("OPTIONS".equalsIgnoreCase(echange.getRequestMethod())) {
-                echange.sendResponseHeaders(204, -1); // No Content
+                echange.sendResponseHeaders(204, -1);
                 return;
             }
 
@@ -218,11 +225,10 @@ public class Serveur {
                 Registry reg = LocateRegistry.getRegistry(host, port);
                 Service service = (Service) reg.lookup("ServiceIncidents");
 
-                // Appel du service
-                JSONObject reponseJson = service.getMessage();  // On suppose que ça retourne un JSON
+                String body = service.getMessage();
+                JSONObject obj = new JSONObject(body);
+                byte[] bytes = obj.toString().getBytes(StandardCharsets.UTF_8);
 
-                byte[] bytes = reponseJson.toString().getBytes(StandardCharsets.UTF_8);
-                echange.getResponseHeaders().set("Content-Type", "application/json; charset=UTF-8");
                 echange.sendResponseHeaders(200, bytes.length);
 
                 try (OutputStream os = echange.getResponseBody()) {
@@ -230,9 +236,10 @@ public class Serveur {
                 }
 
             } catch (Exception e) {
+                e.printStackTrace();
+
                 String erreur = "{\"erreur\": \"" + e.getMessage().replace("\"", "\\\"") + "\"}";
                 byte[] erreurBytes = erreur.getBytes(StandardCharsets.UTF_8);
-                echange.getResponseHeaders().set("Content-Type", "application/json; charset=UTF-8");
                 echange.sendResponseHeaders(500, erreurBytes.length);
 
                 try (OutputStream os = echange.getResponseBody()) {

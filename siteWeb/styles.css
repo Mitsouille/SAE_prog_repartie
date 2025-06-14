@@ -242,9 +242,6 @@ h1 {
   margin-bottom: 30px;
 }
 
-
-
-
 .header-title h1 {
   font-size: 2.8em;
   color: #3f51b5;
@@ -272,4 +269,30 @@ h1 {
 }
 .rapport-button:hover {
   background: #2c3d94;
+}
+.config-panel {
+    margin: 20px 0;
+    display: flex;
+    gap: 10px;
+    align-items: center;
+}
+
+.config-panel input {
+    padding: 6px 10px;
+    border-radius: 6px;
+    border: 1px solid #ccc;
+    width: 250px;
+}
+
+.config-panel button {
+    padding: 6px 12px;
+    border: none;
+    border-radius: 6px;
+    background-color: #3f51b5;
+    color: white;
+    cursor: pointer;
+}
+
+.config-panel button:hover {
+    background-color: #2c3e90;
 }

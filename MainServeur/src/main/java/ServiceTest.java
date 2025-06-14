@@ -12,8 +12,8 @@ public class ServiceTest extends UnicastRemoteObject implements Service {
     }
 
     @Override
-    public JSONObject getMessage() throws RemoteException {
-        JSONObject jsonObject = new JSONObject("Hello depuis Service RMI 👋");
+    public String getMessage() throws RemoteException {
+        String jsonObject = new String("Hello depuis Service RMI 👋");
         return jsonObject;
     }
 
