@@ -63,3 +63,20 @@ export function setupCancelForm() {
     .catch(() => alert("Erreur d'annulation"));
   });
 }
+
+export function openModal() {
+  document.getElementById("reservationModal").style.display = "flex";
+}
+
+export function closeModal() {
+  document.getElementById("reservationModal").style.display = "none";
+}
+
+export function openCancelModal() {
+  document.getElementById("cancelReservationModal").style.display = "flex";
+}
+
+export function closeCancelModal() {
+  document.getElementById("cancelReservationModal").style.display = "none";
+}
+
