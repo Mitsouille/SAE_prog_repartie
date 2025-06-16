@@ -12,7 +12,7 @@ public class ServiceTest extends UnicastRemoteObject implements Service {
 
     @Override
     public String getMessage() throws RemoteException {
-        return "Hello depuis Service RMI 👋";
+        return "Hello depuis Service RMI ";
     }
 
     public static void main(String[] args) {
