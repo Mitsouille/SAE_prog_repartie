@@ -11,8 +11,4 @@
   </parent>
 
   <artifactId>MainServeur</artifactId>
-
-  <dependencies>
-    <!-- tes dépendances éventuelles -->
-  </dependencies>
 </project>

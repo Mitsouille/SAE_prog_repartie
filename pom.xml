@@ -19,4 +19,12 @@
         <module>HTTPService</module>
         <module>DB_restaurant</module>
     </modules>
+
+    <dependencies>
+        <dependency>
+            <groupId>org.json</groupId>
+            <artifactId>json</artifactId>
+            <version>20131018</version>
+        </dependency>
+    </dependencies>
 </project>

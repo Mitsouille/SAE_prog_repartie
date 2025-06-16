@@ -1,8 +1,9 @@
-import java.io.Serializable;
 import java.rmi.RemoteException;
 import java.rmi.registry.LocateRegistry;
 import java.rmi.registry.Registry;
 import java.rmi.server.UnicastRemoteObject;
+
+import org.json.JSONObject;
 
 public class ServiceTest extends UnicastRemoteObject implements Service {
 
@@ -10,10 +11,10 @@ public class ServiceTest extends UnicastRemoteObject implements Service {
         super();
     }
 
-    @Override
-    public String getMessage() throws RemoteException {
-        return "Hello depuis Service RMI ";
-    }
+@Override
+public String getMessage() throws RemoteException {
+    return "Hello depuis Service RMI ";
+}
 
     public static void main(String[] args) {
         try {

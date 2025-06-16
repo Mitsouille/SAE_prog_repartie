@@ -10,10 +10,22 @@
 </head>
 
 <body>
+    <div class="config-panel"
+        style="position: fixed; top: 10px; right: 10px; background: white; padding: 10px; border-radius: 10px; box-shadow: 0 0 10px rgba(0,0,0,0.2); z-index: 9999;">
+        <label for="serverUrl">Adresse du serveur :</label><br>
+        <input id="serverUrl" type="text" value="https://localhost:8443" style="width: 180px; margin-bottom: 5px;" />
+        <button id="applyServerBtn">Valider</button>
+    </div>
+
     <div class="container">
         <header>
-            <h1>Nancy</h1>
-            <p class="subtitle">Carte interactive</p>
+            <div class="header-row">
+                <div class="header-title">
+                    <h1>Nancy</h1>
+                    <p class="subtitle">Carte interactive</p>
+                </div>
+                <a href="rapport.pdf" target="_blank" class="rapport-button">Rapport</a>
+            </div>
         </header>
 
         <div class="stat-card">
@@ -22,6 +34,21 @@
         </div>
 
         <div id="map"></div>
+
+        <div class="legend-wrapper">
+            <div class="legend">
+                <strong>Légende :</strong>
+                <ul>
+                    <li><span class="legend-dot green"></span> Station avec beaucoup de vélos</li>
+                    <li><span class="legend-dot orange"></span> Station avec peu de vélos</li>
+                    <li><span class="legend-dot red"></span> Station vide</li>
+                    <li><img src="https://cdn-icons-png.flaticon.com/512/595/595067.png" class="legend-icon"> Incident
+                    </li>
+                    <li><img src="https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png" class="legend-icon">
+                        Restaurant</li>
+                </ul>
+            </div>
+        </div>
 
         <div class="stats-grid">
             <div class="stat-card">
@@ -52,7 +79,20 @@
                 <button type="submit">Envoyer</button>
                 <button type="button" onclick="closeModal()">Annuler</button>
             </form>
-            <button id="cancelBtn" style="margin-top: 10px;">Annuler la réservation</button>
+        </div>
+    </div>
+
+    <div id="cancelReservationModal" class="modal">
+        <div class="modal-content">
+            <h3>Annuler une réservation</h3>
+            <form id="cancelReservationForm">
+                <input name="prenom" placeholder="Prénom" required />
+                <input name="nom" placeholder="Nom" required />
+                <input name="tel" placeholder="Téléphone" required />
+                <input name="debut" type="datetime-local" required />
+                <button type="submit">Annuler</button>
+                <button type="button" onclick="closeCancelModal()">Fermer</button>
+            </form>
         </div>
     </div>
 

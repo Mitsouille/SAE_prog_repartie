@@ -1,7 +1,5 @@
-import com.sun.net.httpserver.HttpServer;
-import com.sun.net.httpserver.HttpHandler;
-import com.sun.net.httpserver.HttpExchange;
 
+import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.net.InetSocketAddress;
@@ -9,31 +7,68 @@ import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
 import java.rmi.registry.LocateRegistry;
 import java.rmi.registry.Registry;
+import java.security.KeyStore;
 import java.util.HashMap;
 import java.util.Map;
 
+import javax.net.ssl.KeyManagerFactory;
+import javax.net.ssl.SSLContext;
+import javax.net.ssl.SSLEngine;
+
+import org.json.JSONObject;
+
+import com.sun.net.httpserver.HttpExchange;
+import com.sun.net.httpserver.HttpHandler;
+import com.sun.net.httpserver.HttpsConfigurator;
+import com.sun.net.httpserver.HttpsParameters;
+import com.sun.net.httpserver.HttpsServer;
+
 public class Serveur {
-    private HttpServer serveur;
-    private final int portHttp;
+    private HttpsServer serveur;
+    private final int portHttps;
     private final String hostRmi;
     private final int portRmi;
 
-    public Serveur(int portHttp, String hostRmi, int portRmi) {
-        this.portHttp = portHttp;
+    public Serveur(int portHttps, String hostRmi, int portRmi) {
+        this.portHttps = portHttps;
         this.hostRmi = hostRmi;
         this.portRmi = portRmi;
     }
 
-    public void demarrer() throws IOException {
-        serveur = HttpServer.create(new InetSocketAddress("0.0.0.0", portHttp), 0);
+    public void demarrer() throws Exception {
+        // Charger le keystore
+        char[] password = "azerty".toCharArray();
+        KeyStore ks = KeyStore.getInstance("JKS");
+        ks.load(new FileInputStream("keystore.jks"), password);
 
-        // Création de routes avec nom du service RMI différent
+        // Initialiser le KeyManagerFactory
+        KeyManagerFactory kmf = KeyManagerFactory.getInstance("SunX509");
+        kmf.init(ks, password);
+
+        // Créer le contexte SSL
+        SSLContext sslContext = SSLContext.getInstance("TLS");
+        sslContext.init(kmf.getKeyManagers(), null, null);
+
+        // Créer le serveur HTTPS
+        serveur = HttpsServer.create(new InetSocketAddress(portHttps), 0);
+        serveur.setHttpsConfigurator(new HttpsConfigurator(sslContext) {
+            public void configure(HttpsParameters params) {
+                SSLContext c = getSSLContext();
+                SSLEngine engine = c.createSSLEngine();
+                params.setNeedClientAuth(false);
+                params.setCipherSuites(engine.getEnabledCipherSuites());
+                params.setProtocols(engine.getEnabledProtocols());
+                params.setSSLParameters(c.getDefaultSSLParameters());
+            }
+        });
+
+        // Ajout des routes
         serveur.createContext("/data", new HandlerRestaurantRMI(hostRmi, portRmi));
         serveur.createContext("/incidents", new HandlerRMI(hostRmi, portRmi));
 
         serveur.setExecutor(null);
         serveur.start();
-        System.out.println("Serveur HTTP démarré sur le port " + portHttp);
+        System.out.println("Serveur HTTPS démarré sur le port " + portHttps);
     }
 
     static class HandlerRestaurantRMI implements HttpHandler {
@@ -89,9 +124,12 @@ public class Serveur {
                     String body = new String(echange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8);
                     jsonResponse = service.reserverTableJson(body);
 
+                } else if (path.endsWith("/annuler") && "POST".equalsIgnoreCase(method)) {
+                    String body = new String(echange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8);
+                    System.out.println("Corps reçu pour annuler : " + body);
+                    jsonResponse = service.annulerReservationJson(body);
                 } else if (path.endsWith("/annuler")) {
-                    String jsonParams = queryToJsonString(query);
-                    jsonResponse = service.annulerReservationJson(jsonParams);
+                    throw new IllegalArgumentException("Appel à /annuler sans POST");
 
                 } else {
                     throw new IllegalArgumentException("Chemin inconnu : " + path);
@@ -114,7 +152,8 @@ public class Serveur {
         }
 
         public static String queryToJsonString(String query) {
-            if (query == null || query.isEmpty()) return "{}";
+            if (query == null || query.isEmpty())
+                return "{}";
 
             Map<String, String> params = new HashMap<>();
             for (String param : query.split("&")) {
@@ -140,7 +179,8 @@ public class Serveur {
                 String key = entry.getKey();
                 String value = entry.getValue();
 
-                // Si la valeur est un nombre (int), on l'insère sans guillemets, sinon avec guillemets
+                // Si la valeur est un nombre (int), on l'insère sans guillemets, sinon avec
+                // guillemets
                 if (value.matches("-?\\d+")) {
                     sb.append("\"").append(key).append("\":").append(value);
                 } else {
@@ -154,10 +194,10 @@ public class Serveur {
 
     }
 
-
     static class HandlerRMI implements HttpHandler {
         private final String host;
         private final int port;
+
         public HandlerRMI(String host, int port) {
             this.host = host;
             this.port = port;
@@ -168,13 +208,16 @@ public class Serveur {
             String origin = echange.getRequestHeaders().getFirst("Origin");
             if (origin != null) {
                 echange.getResponseHeaders().add("Access-Control-Allow-Origin", origin);
+            } else {
+                echange.getResponseHeaders().add("Access-Control-Allow-Origin", "*");
             }
 
             echange.getResponseHeaders().add("Access-Control-Allow-Methods", "GET, OPTIONS");
             echange.getResponseHeaders().add("Access-Control-Allow-Headers", "*");
+            echange.getResponseHeaders().set("Content-Type", "application/json; charset=UTF-8");
 
             if ("OPTIONS".equalsIgnoreCase(echange.getRequestMethod())) {
-                echange.sendResponseHeaders(204, -1); // No Content
+                echange.sendResponseHeaders(204, -1);
                 return;
             }
 
@@ -182,11 +225,10 @@ public class Serveur {
                 Registry reg = LocateRegistry.getRegistry(host, port);
                 Service service = (Service) reg.lookup("ServiceIncidents");
 
-                // Appel du service
-                String reponseJson = service.getMessage();  // On suppose que ça retourne un JSON
+                String body = service.getMessage();
+                JSONObject obj = new JSONObject(body);
+                byte[] bytes = obj.toString().getBytes(StandardCharsets.UTF_8);
 
-                byte[] bytes = reponseJson.getBytes(StandardCharsets.UTF_8);
-                echange.getResponseHeaders().set("Content-Type", "application/json; charset=UTF-8");
                 echange.sendResponseHeaders(200, bytes.length);
 
                 try (OutputStream os = echange.getResponseBody()) {
@@ -194,9 +236,10 @@ public class Serveur {
                 }
 
             } catch (Exception e) {
+                e.printStackTrace();
+
                 String erreur = "{\"erreur\": \"" + e.getMessage().replace("\"", "\\\"") + "\"}";
                 byte[] erreurBytes = erreur.getBytes(StandardCharsets.UTF_8);
-                echange.getResponseHeaders().set("Content-Type", "application/json; charset=UTF-8");
                 echange.sendResponseHeaders(500, erreurBytes.length);
 
                 try (OutputStream os = echange.getResponseBody()) {

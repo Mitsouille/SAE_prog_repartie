@@ -1,6 +1,13 @@
 
+import java.io.IOException;
 import java.rmi.RemoteException;
-import java.sql.*;
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.sql.Statement;
+import java.sql.Timestamp;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.HashMap;
@@ -8,13 +15,13 @@ import java.util.Map;
 
 public class ServiceRestaurantImpl implements ServiceRestaurant {
     private final Connection conn;
-
-    public ServiceRestaurantImpl() throws RemoteException {
+    
+    public ServiceRestaurantImpl(String URL_DB, String USER_DB, String PASSWORD_DB) throws RemoteException, IOException {
         try {
             DriverManager.registerDriver(new oracle.jdbc.OracleDriver());
             conn = DriverManager.getConnection(
-                "jdbc:oracle:thin:@charlemagne.iutnc.univ-lorraine.fr:1521:infodb",
-                "e0460u", "mdpdemesreves"
+                URL_DB,
+                USER_DB, PASSWORD_DB
             );
         } catch (SQLException e) {
             throw new RemoteException("Connexion à Oracle échouée", e);
