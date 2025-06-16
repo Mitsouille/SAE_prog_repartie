@@ -2,7 +2,7 @@ import java.io.Serializable;
 import java.time.LocalDateTime;
 
 public class ReservationRequest implements Serializable {
-    public int idTable;             // <-- C'était ça qu’il manquait
+    public int idTable;             
     public String prenom;
     public String nom;
     public int nbConvives;

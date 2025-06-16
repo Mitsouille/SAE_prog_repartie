@@ -19,7 +19,7 @@ public class Restaurant implements Serializable {
         this.note = note;
     }
 
-    // Getters (pas besoin de setters pour le client)
+    // Getters 
     public int getId() { return id; }
     public String getNom() { return nom; }
     public String getAdresse() { return adresse; }
