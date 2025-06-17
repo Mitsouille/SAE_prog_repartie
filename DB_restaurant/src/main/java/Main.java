@@ -1,5 +1,6 @@
 import java.io.FileInputStream;
 import java.io.IOException;
+import java.rmi.NotBoundException;
 import java.rmi.registry.LocateRegistry;
 import java.rmi.registry.Registry;
 import java.rmi.server.UnicastRemoteObject;
@@ -13,12 +14,14 @@ public class Main {
     private static int RMI_PORT;
     private static String RMI_HOST;
 
-    public static void main(String[] args) throws IOException {
+    public static void main(String[] args) throws IOException, NotBoundException {
         loadConfig();
         Registry registry = LocateRegistry.getRegistry(RMI_HOST, RMI_PORT);
         ServiceRestaurant service = new ServiceRestaurantImpl(URL_DB, USER_DB, PASSWORD_DB);
         ServiceRestaurant rd = (ServiceRestaurant) UnicastRemoteObject.exportObject(service, 0);
-        registry.rebind("ServiceRestaurant", rd);
+    
+        IServeur mainServ = (IServeur) registry.lookup("MainServeur");
+        mainServ.enregistrerServRestau(rd);
         System.out.println("Connecter sur le registre.");
 
     }

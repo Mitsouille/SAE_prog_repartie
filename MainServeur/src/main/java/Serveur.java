@@ -5,8 +5,7 @@ import java.io.OutputStream;
 import java.net.InetSocketAddress;
 import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
-import java.rmi.registry.LocateRegistry;
-import java.rmi.registry.Registry;
+import java.rmi.RemoteException;
 import java.security.KeyStore;
 import java.util.HashMap;
 import java.util.Map;
@@ -23,16 +22,29 @@ import com.sun.net.httpserver.HttpsConfigurator;
 import com.sun.net.httpserver.HttpsParameters;
 import com.sun.net.httpserver.HttpsServer;
 
-public class Serveur {
+public class Serveur implements IServeur{
     private HttpsServer serveur;
     private final int portHttps;
     private final String hostRmi;
     private final int portRmi;
 
+    private static ServiceRestaurant serviceRestaurant;
+    private static Service serviceIncident;
+
     public Serveur(int portHttps, String hostRmi, int portRmi) {
         this.portHttps = portHttps;
         this.hostRmi = hostRmi;
         this.portRmi = portRmi;
+    }
+
+    @Override
+    public void enregistrerServIncident(Service serv) throws RemoteException{
+        serviceIncident = serv;
+    }
+
+    @Override
+    public void enregistrerServRestau(ServiceRestaurant serv) throws RemoteException{
+        serviceRestaurant = serv;
     }
 
     public void demarrer() throws Exception {
@@ -100,34 +112,32 @@ public class Serveur {
             }
 
             try {
-                Registry reg = LocateRegistry.getRegistry(host, port);
-                ServiceRestaurant service = (ServiceRestaurant) reg.lookup("ServiceRestaurant");
 
                 String jsonResponse;
                 System.out.println(query);
 
                 if (path.endsWith("/restaurants")) {
-                    jsonResponse = service.getTousLesRestaurantsJson();
+                    jsonResponse = serviceRestaurant.getTousLesRestaurantsJson();
 
                 } else if (path.endsWith("/reservations")) {
-                    jsonResponse = service.getToutesLesReservationsJson();
+                    jsonResponse = serviceRestaurant.getToutesLesReservationsJson();
 
                 } else if (path.endsWith("/tables")) {
                     String jsonParams = queryToJsonString(query);
-                    jsonResponse = service.getTablesParRestaurantJson(jsonParams);
+                    jsonResponse = serviceRestaurant.getTablesParRestaurantJson(jsonParams);
 
                 } else if (path.endsWith("/placesDisponibles")) {
                     String jsonParams = queryToJsonString(query);
-                    jsonResponse = service.getPlacesDisponiblesJson(jsonParams);
+                    jsonResponse = serviceRestaurant.getPlacesDisponiblesJson(jsonParams);
 
                 } else if (path.endsWith("/reserver") && "POST".equalsIgnoreCase(method)) {
                     String body = new String(echange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8);
-                    jsonResponse = service.reserverTableJson(body);
+                    jsonResponse = serviceRestaurant.reserverTableJson(body);
 
                 } else if (path.endsWith("/annuler") && "POST".equalsIgnoreCase(method)) {
                     String body = new String(echange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8);
                     System.out.println("Corps reçu pour annuler : " + body);
-                    jsonResponse = service.annulerReservationJson(body);
+                    jsonResponse = serviceRestaurant.annulerReservationJson(body);
                 } else if (path.endsWith("/annuler")) {
                     throw new IllegalArgumentException("Appel à /annuler sans POST");
 
@@ -222,10 +232,8 @@ public class Serveur {
             }
 
             try {
-                Registry reg = LocateRegistry.getRegistry(host, port);
-                Service service = (Service) reg.lookup("ServiceIncidents");
 
-                String body = service.getMessage();
+                String body = serviceIncident.getMessage();
                 JSONObject obj = new JSONObject(body);
                 byte[] bytes = obj.toString().getBytes(StandardCharsets.UTF_8);
 

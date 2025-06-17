@@ -1,6 +1,8 @@
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.rmi.registry.LocateRegistry;
+import java.rmi.registry.Registry;
+import java.rmi.server.UnicastRemoteObject;
 import java.util.Properties;
 
 public class Main {
@@ -13,12 +15,16 @@ public class Main {
         loadConfig();
         try {
             // Crée le registre RMI (sans enregistrer de service ici)
-            LocateRegistry.createRegistry(REGISTRY_PORT);
+            Registry reg = LocateRegistry.createRegistry(REGISTRY_PORT);
             System.out.println("Registry RMI démarré sur le port " + REGISTRY_PORT);
 
             // Lancer le serveur HTTP
             Serveur serveur = new Serveur(PORT_HTTP, RMI_HOST, REGISTRY_PORT);
+            IServeur serveurMain = (IServeur) UnicastRemoteObject.exportObject(serveur, 0);
+            reg.bind("MainServeur", serveurMain);
             serveur.demarrer();
+            
+
 
         } catch (Exception e) {
             e.printStackTrace();

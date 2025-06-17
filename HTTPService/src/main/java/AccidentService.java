@@ -1,4 +1,3 @@
-import java.io.FileInputStream;
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.net.ProxySelector;
@@ -8,30 +7,33 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.rmi.RemoteException;
 import java.time.Duration;
-import java.util.Properties;
 import java.util.concurrent.ExecutionException;
 
 import org.json.JSONObject;
 
 public class AccidentService implements Service {
+
+    private int RMI_PORT;
+    private String RMI_HOST;
     private int PROXY_PORT;
     private String PROXY_URL;
     private String PROXY_HOST_NAME;
     private String URL_API_INCIDENT;
-
     private HttpClient httpClient;
 
-    public AccidentService() throws IOException {
-        loadConfig();
-
+    public AccidentService(int proxyPort, String proxyURL, String proxyHostName, String urlApi) throws IOException {
+        this.PROXY_PORT = proxyPort;
+        this.PROXY_URL = proxyURL;
+        this.PROXY_HOST_NAME = proxyHostName;
+        this.URL_API_INCIDENT = urlApi;
         HttpClient.Builder builder = HttpClient.newBuilder()
                 .version(HttpClient.Version.HTTP_2)
                 .followRedirects(HttpClient.Redirect.NORMAL)
                 .connectTimeout(Duration.ofSeconds(20));
 
-        InetSocketAddress proxyAddr = new InetSocketAddress(PROXY_HOST_NAME, PROXY_PORT);
+        InetSocketAddress proxyAddr = new InetSocketAddress(proxyHostName, proxyPort);
         if (!proxyAddr.isUnresolved()) {
-            System.out.println("[PROXY] Utilisation du proxy : " + PROXY_HOST_NAME + ":" + PROXY_PORT);
+            System.out.println("[PROXY] Utilisation du proxy : " + proxyHostName + ":" + proxyPort);
             builder.proxy(ProxySelector.of(proxyAddr));
         } else {
             System.out.println("[PROXY] Proxy non résolu, utilisation directe sans proxy.");
@@ -83,26 +85,6 @@ public class AccidentService implements Service {
 
         } catch (InterruptedException | ExecutionException e) {
             throw new RemoteException("Erreur lors de l'appel HTTP: " + e.getMessage(), e);
-        }
-    }
-
-    private void loadConfig() throws IOException {
-        Properties props = new Properties();
-        try (FileInputStream fis = new FileInputStream("HTTPService/config.properties")) {
-            props.load(fis);
-        }
-
-        PROXY_HOST_NAME = props.getProperty("PROXY_HOST_NAME");
-        PROXY_URL = props.getProperty("PROXY_URL");
-        PROXY_PORT = Integer.parseInt(props.getProperty("PROXY_PORT"));
-        URL_API_INCIDENT = props.getProperty("INCIDENT_URL_API");
-
-        System.out.println("[CONFIG] PROXY_HOST_NAME = " + PROXY_HOST_NAME);
-        System.out.println("[CONFIG] PROXY_PORT = " + PROXY_PORT);
-        System.out.println("[CONFIG] INCIDENT_URL_API = " + URL_API_INCIDENT);
-
-        if (PROXY_HOST_NAME == null || URL_API_INCIDENT == null) {
-            throw new IOException("Fichier de configuration incomplet ou introuvable.");
         }
     }
 
